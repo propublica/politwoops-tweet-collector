@@ -76,11 +76,11 @@ class DeletedTweetsWorker:
         cursor = self.database.cursor()
         q = "SELECT `twitter_id`, `user_name`, `id` FROM `politicians`"
         cursor.execute(q)
-        ids = []
+        ids = {}
         politicians = {}
         for t in cursor.fetchall():
-            ids.append(t[0])
-            politicians[t[1].lower()] = t[2]
+            ids[t[0]] = t[2]
+            politicians[t[0]] = t[1]
         self._debug("Found ids : ")
         self._debug(ids)
         self._debug("Found politians : ")
@@ -100,10 +100,10 @@ class DeletedTweetsWorker:
     def handle_tweet(self, job_body):
         tweet = anyjson.deserialize(job_body)
         if tweet.has_key('delete'):
-            if tweet['delete']['status']['user_id'] in self.users:
+            if tweet['delete']['status']['user_id'] in self.users.keys():
                 self.handle_deletion(tweet)
         else:
-            if tweet['user']['id'] in self.users:
+            if tweet['user']['id'] in self.users.keys():
                 self.handle_new(tweet)
     
     def handle_deletion(self, tweet):
@@ -117,7 +117,8 @@ class DeletedTweetsWorker:
             cursor.execute("""REPLACE INTO `tweets` (`id`, `deleted`, `modified`, `created`) VALUES(%s, 1, NOW(), NOW())""", (tweet['delete']['status']['id']))
     
     def handle_new(self, tweet):
-        self._debug("New tweet %s from user %s/%s (%s)!" % (tweet['id'], tweet['user']['id'], tweet['user']['screen_name'], tweet['user']['id'] in self.users))
+        self._debug("New tweet %s from user %s/%s (%s)!" % (tweet['id'], tweet['user']['id'], tweet['user']['screen_name'], tweet['user']['id'] in self.users.keys()))
+        self.handle_possible_rename(tweet)
         cursor = self.database.cursor()
         cursor.execute("""SELECT COUNT(*) FROM `tweets` WHERE `id` = %s AND deleted = 1""", (tweet['id'],))
         num_previous = cursor.fetchone()[0]
@@ -125,7 +126,16 @@ class DeletedTweetsWorker:
             cursor.execute("""UPDATE `tweets` SET `user_name` = %s, `content` = %s, `tweet`=%s, `modified`= NOW() WHERE id = %s""", (tweet['user']['screen_name'], tweet['text'], anyjson.serialize(tweet), tweet['id'],))
         else:
             cursor.execute("""DELETE FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
-            cursor.execute("""INSERT INTO `tweets` (`id`, `user_name`, `politician_id`, `content`, `created`, `modified`, `tweet`) VALUES(%s, %s, %s, %s, NOW(), NOW(), %s)""", (tweet['id'], tweet['user']['screen_name'], self.politicians[tweet['user']['screen_name'].lower()], tweet['text'], anyjson.serialize(tweet)))
+            cursor.execute("""INSERT INTO `tweets` (`id`, `user_name`, `politician_id`, `content`, `created`, `modified`, `tweet`) VALUES(%s, %s, %s, %s, NOW(), NOW(), %s)""", (tweet['id'], tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], anyjson.serialize(tweet)))
+    
+    def handle_possible_rename(self, tweet):
+        tweet_user_name = tweet['user']['screen_name']
+        tweet_user_id = tweet['user']['id']
+        current_user_name = self.politicians[tweet_user_id]
+        if current_user_name != tweet_user_name:
+            self.politicians[tweet_user_id] = tweet_user_name
+            cursor= self.database.cursor()
+            cursor.execute("""UPDATE `politicians` SET `user_name` = %s WHERE `id` = %s""", (tweet_user_name, self.users[tweet_user_id]))
 
 def main(argv=None):
     verbose = False
