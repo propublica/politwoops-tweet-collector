@@ -103,7 +103,7 @@ class DeletedTweetsWorker:
             if tweet['delete']['status']['user_id'] in self.users.keys():
                 self.handle_deletion(tweet)
         else:
-            if tweet['user']['id'] in self.users.keys():
+            if tweet.has_key('user') and (tweet['user']['id'] in self.users.keys()):
                 self.handle_new(tweet)
     
     def handle_deletion(self, tweet):
