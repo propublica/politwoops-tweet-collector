@@ -12,6 +12,8 @@ import getopt
 import ConfigParser
 import MySQLdb
 
+from time import sleep
+
 import anyjson
 import beanstalkc
 
@@ -92,6 +94,7 @@ class DeletedTweetsWorker:
         self.beanstalk = self.get_beanstalk()
         self.users, self.politicians = self.get_users()
         while True:
+            sleep(0.2)
             job = self.beanstalk.reserve(timeout=0)
             if job:
                 self.handle_tweet(job.body)
