@@ -1,0 +1,2 @@
+cd /home/breyten/politwoops-twitter-client
+kill -9 `cat tweets-client.pid`

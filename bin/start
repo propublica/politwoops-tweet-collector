@@ -1,0 +1,4 @@
+#!/bin/sh
+cd /home/breyten/politwoops-twitter-client/bin
+./tweets-client.py >>../log/tweets-client.log 2>>../log/tweets-client.err &
+echo $? >../tweets-client.pid
