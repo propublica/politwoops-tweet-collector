@@ -61,6 +61,7 @@ class DeletedTweetsWorker:
             charset="utf8",
             use_unicode=True
         )
+        conn.autocommit(True) # needed if you're using InnoDB
         conn.cursor().execute('SET NAMES UTF8')
         return conn
     
@@ -85,7 +86,7 @@ class DeletedTweetsWorker:
             politicians[t[0]] = t[1]
         self._debug("Found ids : ")
         self._debug(ids)
-        self._debug("Found politians : ")
+        self._debug("Found politicians : ")
         self._debug(politicians)
         return ids, politicians
 
@@ -110,7 +111,7 @@ class DeletedTweetsWorker:
                 self.handle_new(tweet)
     
     def handle_deletion(self, tweet):
-        self._debug("Deleted tweet %s!" % (tweet['delete']['status']['id']))
+        self._debug("Deleted tweet %s!\n" % (tweet['delete']['status']['id']))
         cursor = self.database.cursor()
         cursor.execute("""SELECT COUNT(*) FROM `tweets` WHERE `id` = %s""", (tweet['delete']['status']['id'],))
         num_previous = cursor.fetchone()[0]
@@ -125,11 +126,19 @@ class DeletedTweetsWorker:
         cursor = self.database.cursor()
         cursor.execute("""SELECT COUNT(*) FROM `tweets` WHERE `id` = %s AND deleted = 1""", (tweet['id'],))
         num_previous = cursor.fetchone()[0]
+        
+        # cursor.execute("""SELECT COUNT(*) FROM `tweets`""")
+        # total_count = cursor.fetchone()[0]
+        # self._debug("Total count in table: %s" % total_count)
+
+
         if num_previous > 0:
             cursor.execute("""UPDATE `tweets` SET `user_name` = %s, `content` = %s, `tweet`=%s, `modified`= NOW() WHERE id = %s""", (tweet['user']['screen_name'], tweet['text'], anyjson.serialize(tweet), tweet['id'],))
+            #self._debug("Updated tweet %s\n" % tweet['id'])
         else:
             cursor.execute("""DELETE FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
             cursor.execute("""INSERT INTO `tweets` (`id`, `user_name`, `politician_id`, `content`, `created`, `modified`, `tweet`) VALUES(%s, %s, %s, %s, NOW(), NOW(), %s)""", (tweet['id'], tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], anyjson.serialize(tweet)))
+            #self._debug("Inserted new tweet %s\n" % tweet['id'])
     
     def handle_possible_rename(self, tweet):
         tweet_user_name = tweet['user']['screen_name']
