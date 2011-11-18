@@ -1,0 +1,32 @@
+= Install Beanstalkd
+
+http://kr.github.com/beanstalkd/download.html
+
+Requires installing the libevent-dev package on apt-based systems.
+
+= Install Python dependencies
+
+* beanstalkc (pip install)
+* anyjson (pip install)
+* tweetstream (1.1.1, install from https://bitbucket.org/runeh/tweetstream/src)
+* MySQLdb (python-mysqldb package on apt-based systems)
+
+= Edit config file
+
+In the [tweets-client] section, add your Twitter account's username and password. It is this account that will be authenticated against to make the API requests.
+
+In the [beanstalk] section, change the "tube" parameter to the name you want to use for your queue in beanstalk.
+
+In the [database] section, update the "host", "port", "username", "password", and "database" sections with your own details, if the defaults are not appropriate.
+
+= Running
+
+Run tweets-client.py to start streaming items from Twitter into the beanstalk queue. Append the lib directory to the PYTHONPATH, either persistently or as part of the command:
+
+PYTHONPATH=$PYTHONPATH:/path/to/politwoops-twitter-client/lib ./bin/tweets-client.py -v
+
+Then run politwoops-worker.py to start pulling the tweets out of beanstalk and loading them into MySQL:
+
+PYTHONPATH=$PYTHONPATH:/path/to/politwoops-twitter-client/lib ./bin/politwoops-worker.py -v
+
+
