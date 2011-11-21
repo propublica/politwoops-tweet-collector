@@ -16,6 +16,8 @@ import ConfigParser
 
 import beanstalkc
 
+from time import sleep
+
 import socket
 # disable buffering
 socket._fileobject.default_bufsize = 0
@@ -43,8 +45,8 @@ Options:
 
 
 class Usage(Exception):
-	def __init__(self, msg):
-		self.msg = msg
+    def __init__(self, msg):
+        self.msg = msg
 
 class TweetStreamClient:
     def __init__(self, verbose, output = None):
@@ -95,7 +97,7 @@ class TweetStreamClient:
         self._debug(track_items)
         stream = None
         if stream_type == 'users':
-            stream = tweetstream.FollowStream(self.user, self.passwd, track_items)
+            stream = tweetstream.FilterStream(self.user, self.passwd, track_items)
         elif stream_type == 'words':
             stream = tweetstream.TrackStream(self.user, self.passwd, track_items)
         else:
@@ -106,7 +108,7 @@ class TweetStreamClient:
         if self.verbose:
             print >>sys.stderr, msg
     
-    def run(self):
+    def _run(self):
         self.queue = self.get_queue()
         self._debug("Setting up stream ...")
         stream = self.get_stream()
@@ -116,36 +118,55 @@ class TweetStreamClient:
         self.queue.disconnect()
         return 0
 
+    def run(self):
+        # keeps tabs on whether we should restart the connection to Twitter ourselves
+        shouldRestart = True
+        # keeps tabs on how many times we've unsuccesfully restarted -- more means longer waiting times
+        self.restartCounter = 0
+        
+        while shouldRestart:
+            shouldRestart = False
+            try:
+                self._run()
+            except tweetstream.ConnectionError, e:
+                shouldRestart = True
+                sleep(self.restartCounter * 30)
+                self.restartCounter += 1
+                self._debug("Connection error, restarting for the %s time..." % (self.restartCounter))
+    
     def handle_tweet(self, stream, tweet):
+        # reset the restart counter once a tweet has come in
+        self.restartCounter = 0
+        # add the tweet to the queue
         self.queue.add(tweet)
 
 def main(argv=None):
-	if argv is None:
-		argv = sys.argv
-	try:
-		try:
-			opts, args = getopt.getopt(argv[1:], "ho:v", ["help", "output="])
-		except getopt.error, msg:
-			raise Usage(msg)
-	
-		# option processing
-		verbose = False
-		output = None
-		for option, value in opts:
-			if option == "-v":
-				verbose = True
-			if option in ("-h", "--help"):
-				raise Usage(help_message)
-			if option in ("-o", "--output"):
-				output = value	  
-	except Usage, err:
-		print >> sys.stderr, sys.argv[0].split("/")[-1] + ": " + str(err.msg)
-		print >> sys.stderr, "\t for help use --help"
-		return 2
-	if verbose:
-	    print "Starting .."
-	app = TweetStreamClient(verbose, output)
-	return app.run()	
+    if argv is None:
+        argv = sys.argv
+    try:
+        try:
+            opts, args = getopt.getopt(argv[1:], "ho:v", ["help", "output="])
+        except getopt.error, msg:
+            raise Usage(msg)
+    
+        # option processing
+        verbose = False
+        output = None
+        for option, value in opts:
+            if option == "-v":
+                verbose = True
+            if option in ("-h", "--help"):
+                raise Usage(help_message)
+            if option in ("-o", "--output"):
+                output = value    
+    except Usage, err:
+        print >> sys.stderr, sys.argv[0].split("/")[-1] + ": " + str(err.msg)
+        print >> sys.stderr, "\t for help use --help"
+        return 2
+    if verbose:
+        print "Starting .."
+    app = TweetStreamClient(verbose, output)
+    return app.run()    
 
 if __name__ == "__main__":
-	sys.exit(main())
+    sys.exit(main())
