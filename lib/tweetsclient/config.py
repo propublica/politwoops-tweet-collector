@@ -15,7 +15,7 @@ class Config:
             """ Load and parses config if necessary """
             if self.config is None:
                 self.config = ConfigParser.ConfigParser()
-                self.config.read(['../conf/tweets-client.ini'])
+                self.config.read(['conf/tweets-client.ini'])
             return self.config
              
     __instance = None
