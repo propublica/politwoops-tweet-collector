@@ -108,7 +108,7 @@ class TweetStreamClient:
         if self.verbose:
             print >>sys.stderr, msg
     
-    def _run(self):
+    def run(self):
         self.queue = self.get_queue()
         self._debug("Setting up stream ...")
         stream = self.get_stream()
@@ -118,7 +118,7 @@ class TweetStreamClient:
         self.queue.disconnect()
         return 0
 
-    def run(self):
+    def run_with_restart(self):
         # keeps tabs on whether we should restart the connection to Twitter ourselves
         shouldRestart = True
         # keeps tabs on how many times we've unsuccesfully restarted -- more means longer waiting times
@@ -127,7 +127,7 @@ class TweetStreamClient:
         while shouldRestart:
             shouldRestart = False
             try:
-                self._run()
+                self.run()
             except (TypeError, tweetstream.ConnectionError) as e:
                 shouldRestart = True
                 sleep(self.restartCounter * 30)
@@ -145,20 +145,23 @@ def main(argv=None):
         argv = sys.argv
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "ho:v", ["help", "output="])
+            opts, args = getopt.getopt(argv[1:], "ho:vr", ["help", "output=", "raise"])
         except getopt.error, msg:
             raise Usage(msg)
     
         # option processing
         verbose = False
         output = None
+        harden = True
         for option, value in opts:
             if option == "-v":
                 verbose = True
             if option in ("-h", "--help"):
                 raise Usage(help_message)
             if option in ("-o", "--output"):
-                output = value    
+                output = value
+            if option in ("-r", "--raise"):
+                harden = False
     except Usage, err:
         print >> sys.stderr, sys.argv[0].split("/")[-1] + ": " + str(err.msg)
         print >> sys.stderr, "\t for help use --help"
@@ -166,7 +169,11 @@ def main(argv=None):
     if verbose:
         print "Starting .."
     app = TweetStreamClient(verbose, output)
-    return app.run()    
+    
+    if harden:
+        return app.run_with_restart()
+    else:
+        return app.run()
 
 if __name__ == "__main__":
     sys.exit(main())
