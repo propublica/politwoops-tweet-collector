@@ -25,7 +25,7 @@ import httplib
 httplib.HTTPConnection.debuglevel = 1
 
 # external libs
-sys.path.insert(0, '../lib')
+sys.path.insert(0, './lib')
 
 import tweetsclient
 
