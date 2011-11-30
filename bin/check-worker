@@ -1,3 +1,3 @@
 #!/bin/sh
 TWEETS_CLIENT_HOME=/home/breyten/politwoops-twitter-client
-if [ -z "$(pgrep -f tweets-client)" ]; then $TWEETS_CLIENT_HOME/bin/start-worker; fi
+if [ -z "$(pgrep -f politwoops-worker)" ]; then $TWEETS_CLIENT_HOME/bin/start-worker; fi
