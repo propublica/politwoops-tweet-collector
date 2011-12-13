@@ -139,13 +139,11 @@ class DeletedTweetsWorker:
             #cursor.execute("""DELETE FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
             self._debug("Should replace %s\n" % tweet['id'])
             tweet_serialized = anyjson.serialize(tweet)
-            cursor.execute("""INSERT INTO 
+            cursor.execute("""REPLACE INTO 
             `tweets` (`id`, `user_name`, `politician_id`, `content`, `created`, `modified`, `tweet`)
             VALUES(%s, %s, %s, %s, NOW(), NOW(), %s)
-            ON DUPLICATE KEY UPDATE `user_name` = %s, `politician_id` = %s, `content` = %s, `created` = NOW(), `modified` = NOW(), tweet = %s
             """, 
-            (tweet['id'], tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], tweet_serialized,
-            tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], tweet_serialized))
+            (tweet['id'], tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], tweet_serialized))
             #self._debug("Inserted new tweet %s\n" % tweet['id'])
     
     def handle_possible_rename(self, tweet):
