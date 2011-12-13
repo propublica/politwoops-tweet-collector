@@ -136,8 +136,16 @@ class DeletedTweetsWorker:
             cursor.execute("""UPDATE `tweets` SET `user_name` = %s, `content` = %s, `tweet`=%s, `modified`= NOW() WHERE id = %s""", (tweet['user']['screen_name'], tweet['text'], anyjson.serialize(tweet), tweet['id'],))
             #self._debug("Updated tweet %s\n" % tweet['id'])
         else:
-            cursor.execute("""DELETE FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
-            cursor.execute("""INSERT INTO `tweets` (`id`, `user_name`, `politician_id`, `content`, `created`, `modified`, `tweet`) VALUES(%s, %s, %s, %s, NOW(), NOW(), %s)""", (tweet['id'], tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], anyjson.serialize(tweet)))
+            #cursor.execute("""DELETE FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
+            self._debug("Should replace %s\n" % tweet['id'])
+            tweet_serialized = anyjson.serialize(tweet)
+            cursor.execute("""INSERT INTO 
+            `tweets` (`id`, `user_name`, `politician_id`, `content`, `created`, `modified`, `tweet`)
+            VALUES(%s, %s, %s, %s, NOW(), NOW(), %s)
+            ON DUPLICATE KEY UPDATE `user_name` = %s, `politician_id` = %s, `content` = %s, `created` = NOW(), `modified` = NOW(), tweet = %s
+            """, 
+            (tweet['id'], tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], tweet_serialized,
+            tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], tweet_serialized))
             #self._debug("Inserted new tweet %s\n" % tweet['id'])
     
     def handle_possible_rename(self, tweet):
