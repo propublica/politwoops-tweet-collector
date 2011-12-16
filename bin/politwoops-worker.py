@@ -117,6 +117,7 @@ class DeletedTweetsWorker:
         num_previous = cursor.fetchone()[0]
         if num_previous > 0:
             cursor.execute("""UPDATE `tweets` SET `modified` = NOW(), `deleted` = 1 WHERE id = %s""", (tweet['delete']['status']['id'],))
+            self.copy_tweet_to_deleted_table(tweet['id'])
         else:
             cursor.execute("""REPLACE INTO `tweets` (`id`, `deleted`, `modified`, `created`) VALUES(%s, 1, NOW(), NOW())""", (tweet['delete']['status']['id']))
     
@@ -124,9 +125,14 @@ class DeletedTweetsWorker:
         self._debug("New tweet %s from user %s/%s (%s)!" % (tweet['id'], tweet['user']['id'], tweet['user']['screen_name'], tweet['user']['id'] in self.users.keys()))
         self.handle_possible_rename(tweet)
         cursor = self.database.cursor()
-        cursor.execute("""SELECT COUNT(*) FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
-        num_previous = cursor.fetchone()[0]
+        cursor.execute("""SELECT COUNT(*), `deleted` FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
         
+        info = cursor.fetchone()
+        num_previous = info[0]
+        if info[1] is not None:
+            was_deleted = (int(info[1]) == 1)
+        else:
+            was_deleted = False
         # cursor.execute("""SELECT COUNT(*) FROM `tweets`""")
         # total_count = cursor.fetchone()[0]
         # self._debug("Total count in table: %s" % total_count)
@@ -139,7 +145,14 @@ class DeletedTweetsWorker:
             #cursor.execute("""DELETE FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
             cursor.execute("""INSERT INTO `tweets` (`id`, `user_name`, `politician_id`, `content`, `created`, `modified`, `tweet`) VALUES(%s, %s, %s, %s, NOW(), NOW(), %s)""", (tweet['id'], tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], anyjson.serialize(tweet)))
             self._debug("Inserted new tweet %s\n" % tweet['id'])
+            
+        if was_deleted:
+            self._debug('Tweet deleted before it came! (%s)' % tweet['id'])
+            self.copy_tweet_to_deleted_table(tweet['id'])            
     
+    def copy_tweet_to_deleted_table(tweet_id):
+        cursor.execute("""INSERT INTO `deleted_tweets` SELECT * FROM `tweets` WHERE `id` = %s AND `content` IS NOT NULL""" % (tweet_id))
+        
     def handle_possible_rename(self, tweet):
         tweet_user_name = tweet['user']['screen_name']
         tweet_user_id = tweet['user']['id']
