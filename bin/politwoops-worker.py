@@ -117,7 +117,7 @@ class DeletedTweetsWorker:
         num_previous = cursor.fetchone()[0]
         if num_previous > 0:
             cursor.execute("""UPDATE `tweets` SET `modified` = NOW(), `deleted` = 1 WHERE id = %s""", (tweet['delete']['status']['id'],))
-            self.copy_tweet_to_deleted_table(tweet['id'])
+            self.copy_tweet_to_deleted_table(tweet['delete']['status']['id'])
         else:
             cursor.execute("""REPLACE INTO `tweets` (`id`, `deleted`, `modified`, `created`) VALUES(%s, 1, NOW(), NOW())""", (tweet['delete']['status']['id']))
     
@@ -150,7 +150,8 @@ class DeletedTweetsWorker:
             self._debug('Tweet deleted before it came! (%s)' % tweet['id'])
             self.copy_tweet_to_deleted_table(tweet['id'])            
     
-    def copy_tweet_to_deleted_table(tweet_id):
+    def copy_tweet_to_deleted_table(self, tweet_id):
+        cursor = self.database.cursor()
         cursor.execute("""INSERT INTO `deleted_tweets` SELECT * FROM `tweets` WHERE `id` = %s AND `content` IS NOT NULL""" % (tweet_id))
         
     def handle_possible_rename(self, tweet):
