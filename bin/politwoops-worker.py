@@ -152,7 +152,7 @@ class DeletedTweetsWorker:
     
     def copy_tweet_to_deleted_table(self, tweet_id):
         cursor = self.database.cursor()
-        cursor.execute("""INSERT INTO `deleted_tweets` SELECT * FROM `tweets` WHERE `id` = %s AND `content` IS NOT NULL""" % (tweet_id))
+        cursor.execute("""INSERT IGNORE INTO `deleted_tweets` SELECT * FROM `tweets` WHERE `id` = %s AND `content` IS NOT NULL""" % (tweet_id))
         
     def handle_possible_rename(self, tweet):
         tweet_user_name = tweet['user']['screen_name']
