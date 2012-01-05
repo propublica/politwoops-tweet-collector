@@ -24,12 +24,17 @@ socket._fileobject.default_bufsize = 0
 import httplib
 httplib.HTTPConnection.debuglevel = 1
 
+import urllib
+import urllib2
+
 # external libs
 sys.path.insert(0, './lib')
 
 import tweetsclient
 
 import politwoops
+
+from stathat import StatHat
 
 help_message = '''
 The help message goes here.
@@ -94,12 +99,31 @@ class DeletedTweetsWorker:
         self.database = self.get_database()
         self.beanstalk = self.get_beanstalk()
         self.users, self.politicians = self.get_users()
+        self.stathat = self.get_stathat()
         while True:
             sleep(0.2)
             job = self.beanstalk.reserve(timeout=0)
             if job:
                 self.handle_tweet(job.body)
                 job.delete()
+    
+    def get_stathat(self):
+        stathat_enabled = (self.config.get('stathat', 'enabled') == 'yes')
+        if not stathat_enabled:
+            self._debug('Running without stathat ...')
+            return
+        else:
+            self._debug('StatHat ingeration enabled ...')
+            return StatHat()
+        
+    def stathat_add_count(self, stat_name):
+        if self.stathat is not None:
+            try:
+                self.stathat.ez_post_count(self.config.get('stathat', 'email'), stat_name, 1)
+            except urllib2.URLError, e:
+                pass
+            except urllib2.HTTPError, e:
+                pass
     
     def handle_tweet(self, job_body):
         tweet = anyjson.deserialize(job_body)
@@ -148,11 +172,14 @@ class DeletedTweetsWorker:
             
         if was_deleted:
             self._debug('Tweet deleted before it came! (%s)' % tweet['id'])
-            self.copy_tweet_to_deleted_table(tweet['id'])            
+            self.copy_tweet_to_deleted_table(tweet['id'])
+        
+        self.stathat_add_count('tweets')
     
     def copy_tweet_to_deleted_table(self, tweet_id):
         cursor = self.database.cursor()
         cursor.execute("""INSERT IGNORE INTO `deleted_tweets` SELECT * FROM `tweets` WHERE `id` = %s AND `content` IS NOT NULL""" % (tweet_id))
+        self.stathat_add_count('deleted tweets')
         
     def handle_possible_rename(self, tweet):
         tweet_user_name = tweet['user']['screen_name']
