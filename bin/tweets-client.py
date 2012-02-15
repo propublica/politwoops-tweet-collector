@@ -128,9 +128,9 @@ class TweetStreamClient:
             shouldRestart = False
             try:
                 self.run()
-            except (TypeError, tweetstream.ConnectionError) as e:
+            except (TypeError, tweetstream.ConnectionError, urllib2.HTTPError) as e:
                 shouldRestart = True
-                sleep(self.restartCounter * 30)
+                sleep(self.restartCounter * 60 * 5) # wait 5 extra minutes for each retry
                 self.restartCounter += 1
                 self._debug("Connection error, restarting for the %s time...\n\t%s" % (self.restartCounter, e.message))
     
