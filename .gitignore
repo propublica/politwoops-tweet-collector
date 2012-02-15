@@ -1,2 +1,3 @@
 web/
 *.pyc
+/conf/tweets-client.ini

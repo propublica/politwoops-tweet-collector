@@ -1,0 +1,49 @@
+# fill in Twitter account username and password
+[tweets-client]
+username=
+password=
+
+# type can be stream, words, or users
+type=users
+
+# which tracking?
+track-module=tweetsclient.mysql_track
+track-class=MySQLTrackPlugin
+
+# fill in name of beanstalk tube
+[beanstalk]
+host=localhost
+port=11300
+tube=
+
+# replace database information if necessary
+[database]
+host=localhost
+port=3306
+database=politwoops
+username=politwoops
+password=politwoops
+table=politicians
+field=twitter_id
+conditions=status=1
+
+# fill in stathat email
+[stathat]
+enabled=no
+email=
+
+# fill in url2png credentials
+# change size of screenshot if needed
+# set a writeable directory to temporarily store cached images in
+[url2png]
+apikey=
+secret=
+bounds=1280x1024
+tmp_dir=/tmp
+
+# fill in AWS credentials, bucket to upload images to, and any path prefix within the bucket
+[aws]
+access_key=
+secret_access_key=
+bucket_name=
+url_prefix=
