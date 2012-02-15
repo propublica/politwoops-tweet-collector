@@ -20,6 +20,10 @@ In the [beanstalk] section, change the "tube" parameter to the name you want to 
 
 In the [database] section, update the "host", "port", "username", "password", and "database" sections with your own details, if the defaults are not appropriate.
 
+In the [url2png] section, add your credentials, preferred screenshot size, and what directory on your computer to use for temporarily storing images.
+
+In the [aws] section, add your access key, secret access key, bucket name, and any path prefix inside the bucket you want to use.
+
 = Running
 
 Run tweets-client.py to start streaming items from Twitter into the beanstalk queue. Append the lib directory to the PYTHONPATH, either persistently or as part of the command:
