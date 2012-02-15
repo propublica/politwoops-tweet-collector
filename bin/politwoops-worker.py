@@ -40,15 +40,23 @@ help_message = '''
 The help message goes here.
 '''
 
+# used for screenshot capturing and archiving
+import subprocess
+import hashlib
+from boto.s3.connection import S3Connection
+from boto.s3.key import Key
+
+
 class Usage(Exception):
     def __init__(self, msg):
         self.msg = msg
 
 
 class DeletedTweetsWorker:
-    def __init__(self, verbose, output = None):
+    def __init__(self, verbose, output, images):
         self.verbose = verbose
         self.output = output
+        self.images = images
         self.get_config()
     
     def _debug(self, msg):
@@ -133,6 +141,17 @@ class DeletedTweetsWorker:
         else:
             if tweet.has_key('user') and (tweet['user']['id'] in self.users.keys()):
                 self.handle_new(tweet)
+
+                if self.images and tweet.has_key('entities'):
+                    tweet_id = tweet['id']
+
+                    for i, url_entity in enumerate(tweet['entities']['urls']):
+                        origin_url = url_entity['expanded_url']
+                        filename = "%i-%i.png" % (tweet_id, i)
+
+                        archived_url = self.archive_image(filename, origin_url)
+                        self._debug("Uploaded image to %s" % archived_url)
+                        self.handle_image(tweet, archived_url)
     
     def handle_deletion(self, tweet):
         self._debug("Deleted tweet %s!\n" % (tweet['delete']['status']['id']))
@@ -169,12 +188,18 @@ class DeletedTweetsWorker:
             #cursor.execute("""DELETE FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
             cursor.execute("""INSERT INTO `tweets` (`id`, `user_name`, `politician_id`, `content`, `created`, `modified`, `tweet`) VALUES(%s, %s, %s, %s, NOW(), NOW(), %s)""", (tweet['id'], tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], anyjson.serialize(tweet)))
             self._debug("Inserted new tweet %s\n" % tweet['id'])
+
             
         if was_deleted:
             self._debug('Tweet deleted before it came! (%s)' % tweet['id'])
             self.copy_tweet_to_deleted_table(tweet['id'])
         
         self.stathat_add_count('tweets')
+    
+    def handle_image(self, tweet, url):
+        cursor = self.database.cursor()
+        cursor.execute("""INSERT INTO `tweet_images` (`tweet_id`, `url`, `created_at`, `updated_at`) VALUES(%s, %s, NOW(), NOW())""", (tweet['id'], url))
+        self._debug("Inserted tweet image into database")
     
     def copy_tweet_to_deleted_table(self, tweet_id):
         cursor = self.database.cursor()
@@ -189,16 +214,56 @@ class DeletedTweetsWorker:
             self.politicians[tweet_user_id] = tweet_user_name
             cursor= self.database.cursor()
             cursor.execute("""UPDATE `politicians` SET `user_name` = %s WHERE `id` = %s""", (tweet_user_name, self.users[tweet_user_id]))
+    
+    
+    # screenshot capturing/archiving functionality
+
+    def url2png_url(self, url):
+        apikey = self.config.get('url2png', 'apikey')
+        secret = self.config.get('url2png', 'secret')
+        bounds = self.config.get('url2png', 'bounds')
+
+        token = hashlib.md5( "%s+%s" % (secret, url) ).hexdigest()
+        return "http://api.url2png.com/v3/%s/%s/%s/%s" % (apikey, token, bounds, url)
+
+    def upload_image(self, tmp_path, dest_filename):
+        bucket_name = self.config.get('aws', 'bucket_name')
+        access_key = self.config.get('aws', 'access_key')
+        secret_access_key = self.config.get('aws', 'secret_access_key')
+        url_prefix = self.config.get('aws', 'url_prefix')
+
+        dest_path = '%s/%s' % (url_prefix, dest_filename)
+
+        conn = S3Connection(access_key, secret_access_key)
+        bucket = conn.create_bucket(bucket_name)
+        key = Key(bucket)
+        key.key = dest_path
+        key.set_contents_from_filename(tmp_path)
+        key.set_acl('public-read')
+
+        return 'http://%s/%s' % (bucket_name, dest_path)
+
+    def archive_image(self, dest_filename, origin_url):
+        png_url = self.url2png_url(origin_url)
+        tmp_dir = self.config.get('url2png', 'tmp_dir')
+
+        tmp_dest = "%s/%s" % (tmp_dir, dest_filename)
+        code = subprocess.call("curl %s --output %s --silent --connect-timeout 30" % (png_url, tmp_dest), shell=True)
+        if code != 0:
+            return None
+        
+        return self.upload_image(tmp_dest, dest_filename)
 
 def main(argv=None):
     verbose = False
+    images = False
     output = None
     
     if argv is None:
         argv = sys.argv
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "ho:v", ["help", "output="])
+            opts, args = getopt.getopt(argv[1:], "ho:iv", ["help", "output=", "images"])
         except getopt.error, msg:
             raise Usage(msg)
         
@@ -210,6 +275,8 @@ def main(argv=None):
                 raise Usage(help_message)
             if option in ("-o", "--output"):
                 output = value
+            if option in ("-i", "--images"):
+                images = True
     
     except Usage, err:
         print >> sys.stderr, sys.argv[0].split("/")[-1] + ": " + str(err.msg)
@@ -218,8 +285,11 @@ def main(argv=None):
     
     if verbose:
         print "Starting ..."
-	app = DeletedTweetsWorker(verbose, output)
-	return app.run()	
+    if images:
+        print "Going to snap screenshots with url2png..."
+
+    app = DeletedTweetsWorker(verbose, output, images)
+    return app.run()
 
 
 if __name__ == "__main__":

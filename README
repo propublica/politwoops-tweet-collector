@@ -8,6 +8,7 @@ Requires installing the libevent-dev package on apt-based systems.
 
 * beanstalkc (pip install)
 * anyjson (pip install)
+* boto (pip install)
 * tweetstream (1.1.1, install from https://bitbucket.org/runeh/tweetstream/src)
 * MySQLdb (python-mysqldb package on apt-based systems)
 
