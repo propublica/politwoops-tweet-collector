@@ -240,7 +240,10 @@ class DeletedTweetsWorker:
         bucket = conn.create_bucket(bucket_name)
         key = Key(bucket)
         key.key = dest_path
-        key.set_contents_from_filename(tmp_path)
+        try:
+            key.set_contents_from_filename(tmp_path)
+        except (IOError) as e:
+            return None
         key.set_acl('public-read')
 
         return 'http://%s/%s' % (bucket_name, dest_path)
