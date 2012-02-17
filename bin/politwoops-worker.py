@@ -46,7 +46,6 @@ import hashlib
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 
-
 class Usage(Exception):
     def __init__(self, msg):
         self.msg = msg
@@ -150,8 +149,11 @@ class DeletedTweetsWorker:
                         filename = "%i-%i.png" % (tweet_id, i)
 
                         archived_url = self.archive_image(filename, origin_url)
-                        self._debug("Uploaded image to %s" % archived_url)
-                        self.handle_image(tweet, archived_url)
+                        if archived_url:
+                            self._debug("Uploaded image to %s" % archived_url)
+                            self.handle_image(tweet, archived_url)
+                        else:
+                            self._debug("Failed to upload image #%i for %i" % (i, tweet_id))
     
     def handle_deletion(self, tweet):
         self._debug("Deleted tweet %s!\n" % (tweet['delete']['status']['id']))
