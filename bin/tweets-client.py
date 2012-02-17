@@ -131,7 +131,7 @@ class TweetStreamClient:
             except (TypeError, tweetstream.ConnectionError, urllib2.HTTPError) as e:
                 shouldRestart = True
                 
-                if instanceof(e, urllib2.HTTPError):
+                if isinstance(e, urllib2.HTTPError):
                     sleep(60 * 10) # 10 minutes, if it's rate limited
                 else:
                     sleep(self.restartCounter * 30) # otherwise, whatever
