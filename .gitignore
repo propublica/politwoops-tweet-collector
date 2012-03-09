@@ -2,3 +2,4 @@ web/
 *.pyc
 /conf/tweets-client.ini
 /bin/experiment.py
+/*.sql
