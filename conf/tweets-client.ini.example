@@ -32,13 +32,8 @@ conditions=status=1
 enabled=no
 email=
 
-# fill in url2png credentials
-# change size of screenshot if needed
 # set a writeable directory to temporarily store cached images in
-[url2png]
-apikey=
-secret=
-bounds=1280x1024
+[images]
 tmp_dir=/tmp
 
 # fill in AWS credentials, bucket to upload images to, and any path prefix within the bucket

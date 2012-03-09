@@ -249,11 +249,12 @@ class DeletedTweetsWorker:
         return 'http://%s/%s' % (bucket_name, dest_path)
 
     def archive_image(self, dest_filename, origin_url):
-        png_url = self.url2png_url(origin_url)
-        tmp_dir = self.config.get('url2png', 'tmp_dir')
-
+        tmp_dir = self.config.get('images', 'tmp_dir')
         tmp_dest = "%s/%s" % (tmp_dir, dest_filename)
-        code = subprocess.call("curl %s --output %s --silent --connect-timeout 30" % (png_url, tmp_dest), shell=True)
+
+        command = "phantomjs js/rasterize.js %s %s" % (origin_url, tmp_dest)
+        print "Running: %s" % command
+        code = subprocess.call(command, shell=True)
         if code != 0:
             return None
         
