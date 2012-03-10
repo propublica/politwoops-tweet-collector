@@ -113,6 +113,23 @@ class DeletedTweetsWorker:
             if job:
                 self.handle_tweet(job.body)
                 job.delete()
+
+    def run_with_restart(self):
+        # keeps tabs on whether we should restart the connection to Twitter ourselves
+        shouldRestart = True
+        # keeps tabs on how many times we've unsuccesfully restarted -- more means longer waiting times
+        self.restartCounter = 0
+        
+        while shouldRestart:
+            shouldRestart = False
+            try:
+                self.run()
+            except Exception as e:
+                shouldRestart = True
+                sleep(1) # restart after a second
+
+                self.restartCounter += 1
+                self._debug("Some sort of error, restarting for the %s time...\n\t%s" % (self.restartCounter, e.message))
     
     def get_stathat(self):
         stathat_enabled = (self.config.get('stathat', 'enabled') == 'yes')
@@ -264,12 +281,13 @@ def main(argv=None):
     verbose = False
     images = False
     output = None
+    harden = True
     
     if argv is None:
         argv = sys.argv
     try:
         try:
-            opts, args = getopt.getopt(argv[1:], "ho:iv", ["help", "output=", "images"])
+            opts, args = getopt.getopt(argv[1:], "ho:ivr", ["help", "output=", "images", "raise"])
         except getopt.error, msg:
             raise Usage(msg)
         
@@ -283,6 +301,8 @@ def main(argv=None):
                 output = value
             if option in ("-i", "--images"):
                 images = True
+            if option in ("-r", "--raise"):
+                harden = False
     
     except Usage, err:
         print >> sys.stderr, sys.argv[0].split("/")[-1] + ": " + str(err.msg)
@@ -295,7 +315,10 @@ def main(argv=None):
         print "Going to snap screenshots with url2png..."
 
     app = DeletedTweetsWorker(verbose, output, images)
-    return app.run()
+    if harden:
+        return app.run_with_restart()
+    else:
+        return app.run()
 
 
 if __name__ == "__main__":
