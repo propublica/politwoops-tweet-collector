@@ -166,7 +166,11 @@ class DeletedTweetsWorker:
                         filename = "%i-%i.png" % (tweet_id, i)
 
                         if not origin_url:
-                            self._debug("Didn't get an expanded URL, skipping this image")
+                            self._debug("Didn't get an expanded URL, using the t.co URL")
+                            origin_url = url_entity['url']
+
+                        if not origin_url:
+                            self._debug("Apparently no t.co URL either, whatever, skipping")
                             return
 
                         archived_url = self.archive_image(filename, origin_url)
