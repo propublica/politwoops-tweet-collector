@@ -123,12 +123,12 @@ class TweetStreamClient:
         shouldRestart = True
         # keeps tabs on how many times we've unsuccesfully restarted -- more means longer waiting times
         self.restartCounter = 0
-        
+
         while shouldRestart:
             shouldRestart = False
             try:
                 self.run()
-            except (TypeError, tweetstream.ConnectionError, urllib2.HTTPError) as e:
+            except Exception as e:
                 shouldRestart = True
                 
                 if isinstance(e, urllib2.HTTPError):
@@ -137,7 +137,13 @@ class TweetStreamClient:
                     sleep(self.restartCounter * 30) # otherwise, whatever
 
                 self.restartCounter += 1
-                self._debug("Connection error, restarting for the %s time...\n\t%s" % (self.restartCounter, e.message))
+
+                if self.restartCounter > 10:
+                    self._debug("Max restarts reached, shutting down")
+                    shouldRestart = False
+                    return
+                else:
+                    self._debug("Connection error, restarting for the %s time...\n\t%s" % (self.restartCounter, e.message))
     
     def handle_tweet(self, stream, tweet):
         # reset the restart counter once a tweet has come in
