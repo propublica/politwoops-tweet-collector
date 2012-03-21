@@ -13,6 +13,12 @@ if (phantom.args.length < 2 || phantom.args.length > 3) {
     var retries = 0;
     var deathClock = false;
 
+    // final death clock, 30 seconds max for everything
+    window.setTimeout(function() {
+        console.log("Timeout, giving up");
+        phantom.exit();
+    }, 30000);
+
     page.open(address, function (status) {
         if (status == 'success') {
             window.setTimeout(function () {
