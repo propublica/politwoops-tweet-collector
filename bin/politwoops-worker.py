@@ -245,14 +245,6 @@ class DeletedTweetsWorker:
     
     # screenshot capturing/archiving functionality
 
-    def url2png_url(self, url):
-        apikey = self.config.get('url2png', 'apikey')
-        secret = self.config.get('url2png', 'secret')
-        bounds = self.config.get('url2png', 'bounds')
-
-        token = hashlib.md5( "%s+%s" % (secret, url) ).hexdigest()
-        return "http://api.url2png.com/v3/%s/%s/%s/%s" % (apikey, token, bounds, url)
-
     def upload_image(self, tmp_path, dest_filename):
         bucket_name = self.config.get('aws', 'bucket_name')
         access_key = self.config.get('aws', 'access_key')
@@ -320,7 +312,7 @@ def main(argv=None):
     if verbose:
         print "Starting ..."
     if images:
-        print "Going to snap screenshots with url2png..."
+        print "Going to snap screenshots..."
 
     app = DeletedTweetsWorker(verbose, output, images)
     if harden:
