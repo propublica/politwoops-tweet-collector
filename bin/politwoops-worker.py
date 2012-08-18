@@ -168,7 +168,14 @@ class DeletedTweetsWorker:
                         entities = entities + tweet['entities']['media']
 
                     for i, url_entity in enumerate(entities):
-                        origin_url = url_entity['expanded_url']
+                        
+                        origin_url = None
+
+                        if url_entity.has_key('media_url'):
+                            origin_url = url_entity['media_url']
+                        else:
+                            origin_url = url_entity['expanded_url']
+                            
                         filename = "%i-%i.png" % (tweet_id, i)
 
                         if not origin_url:
