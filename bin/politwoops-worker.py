@@ -8,7 +8,9 @@ Copyright (c) 2010 __MyCompanyName__. All rights reserved.
 """
 
 import sys
+import os
 import getopt
+import mimetypes
 import ConfigParser
 import MySQLdb
 
@@ -26,6 +28,10 @@ httplib.HTTPConnection.debuglevel = 1
 
 import urllib
 import urllib2
+import urlparse
+from tempfile import NamedTemporaryFile
+import requests
+import logbook
 
 # external libs
 sys.path.insert(0, './lib')
@@ -36,13 +42,16 @@ import politwoops
 
 from stathat import StatHat
 
+log = logbook.Logger(os.path.basename(__file__)
+                     if __name__ == "__main__"
+                     else __name__)
+
 help_message = '''
 The help message goes here.
 '''
 
 # used for screenshot capturing and archiving
 import subprocess
-import hashlib
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 
@@ -58,12 +67,8 @@ class DeletedTweetsWorker:
         self.images = images
         self.get_config()
     
-    def _debug(self, msg):
-        if self.verbose:
-            print >>sys.stderr, msg
-
     def get_database(self):
-        self._debug("Making DB connection")
+        log.debug("Making DB connection")
         conn = MySQLdb.connect(
             host=self.config.get('database', 'host'),
             port=int(self.config.get('database', 'port')),
@@ -79,12 +84,12 @@ class DeletedTweetsWorker:
     
     def get_beanstalk(self):
         tube = self.config.get('beanstalk', 'tube')
-        self._debug("Initiating beanstalk connection for tube %s ..." % (tube))
+        log.debug("Initiating beanstalk connection for tube {tube}...", tube=tube)
         beanstalk = politwoops.utils.beanstalk(host=self.config.get('beanstalk', 'host'), port=int(self.config.get('beanstalk', 'port')), tube=self.config.get('beanstalk', 'tube'))
         return beanstalk
 
     def get_config(self):
-        self._debug("Reading config ...")
+        log.debug("Reading config ...")
         self.config = tweetsclient.Config().get()
 
     def get_users(self):
@@ -96,23 +101,26 @@ class DeletedTweetsWorker:
         for t in cursor.fetchall():
             ids[t[0]] = t[2]
             politicians[t[0]] = t[1]
-        self._debug("Found ids : ")
-        self._debug(ids)
-        self._debug("Found politicians : ")
-        self._debug(politicians)
+        log.debug("Found ids: {ids}", ids=ids)
+        log.debug("Found politicians: {politicians}", politicians=politicians)
         return ids, politicians
 
     def run(self):
-        self.database = self.get_database()
-        self.beanstalk = self.get_beanstalk()
-        self.users, self.politicians = self.get_users()
-        self.stathat = self.get_stathat()
-        while True:
-            sleep(0.2)
-            job = self.beanstalk.reserve(timeout=0)
-            if job:
-                self.handle_tweet(job.body)
-                job.delete()
+        mimetypes.init()
+        log_handler = logbook.SyslogHandler(application_name='politwoops-worker',
+                                            bubble=self.verbose,
+                                            level='DEBUG' if self.verbose else 'INFO')
+        with log_handler.applicationbound():
+            self.database = self.get_database()
+            self.beanstalk = self.get_beanstalk()
+            self.users, self.politicians = self.get_users()
+            self.stathat = self.get_stathat()
+            while True:
+                sleep(0.2)
+                job = self.beanstalk.reserve(timeout=0)
+                if job:
+                    self.handle_tweet(job.body)
+                    job.delete()
 
     def run_with_restart(self):
         # keeps tabs on whether we should restart the connection to Twitter ourselves
@@ -129,15 +137,17 @@ class DeletedTweetsWorker:
                 sleep(1) # restart after a second
 
                 self.restartCounter += 1
-                self._debug("Some sort of error, restarting for the %s time...\n\t%s" % (self.restartCounter, e.message))
+                log.debug("Some sort of error, restarting for the {nth} time: {exception}",
+                          nth=self.restartCounter,
+                          exception=str(e))
     
     def get_stathat(self):
         stathat_enabled = (self.config.get('stathat', 'enabled') == 'yes')
         if not stathat_enabled:
-            self._debug('Running without stathat ...')
+            log.debug('Running without stathat ...')
             return
         else:
-            self._debug('StatHat ingeration enabled ...')
+            log.debug('StatHat ingeration enabled ...')
             return StatHat()
         
     def stathat_add_count(self, stat_name):
@@ -159,42 +169,49 @@ class DeletedTweetsWorker:
                 self.handle_new(tweet)
 
                 if self.images and tweet.has_key('entities'):
-                    tweet_id = tweet['id']
-
                     entities = []
                     if tweet['entities'].has_key('urls'):
                         entities = entities + tweet['entities']['urls']
                     if tweet['entities'].has_key('media'):
                         entities = entities + tweet['entities']['media']
 
-                    for i, url_entity in enumerate(entities):
-                        
-                        origin_url = None
+                    for entity_index, url_entity in enumerate(entities):
+                        urls = [url for url in [url_entity.get('media_url'),
+                                                url_entity.get('expanded_url'),
+                                                url_entity.get('url')]
+                                if url is not None]
 
-                        if url_entity.has_key('media_url'):
-                            origin_url = url_entity['media_url']
-                        else:
-                            origin_url = url_entity['expanded_url']
-                            
-                        filename = "%i-%i.png" % (tweet_id, i)
+                        log_context={'entity': entity_index,
+                                     'tweet': tweet.get('id'),
+                                     'urls': urls}
 
-                        if not origin_url:
-                            self._debug("Didn't get an expanded URL, using the t.co URL")
-                            origin_url = url_entity['url']
-
-                        if not origin_url:
-                            self._debug("Apparently no t.co URL either, whatever, skipping")
+                        if len(urls) == 0:
+                            log.warn("No URLs for entity {entity} on tweet {tweet}. Skipping.",
+                                     **log_context)
                             return
 
-                        archived_url = self.archive_image(filename, origin_url)
-                        if archived_url:
-                            self._debug("Uploaded image to %s" % archived_url)
-                            self.handle_image(tweet, archived_url)
-                        else:
-                            self._debug("Failed to upload image #%i for %i" % (i, tweet_id))
-    
+                        log.debug("URLs for entity {entity} on tweet {tweet}: {urls}",
+                                  **log_context)
+
+                        for url in urls:
+                            response = requests.head(url)
+                            log.debug("HEAD {status_code} {url} {bytes}",
+                                      status_code=response.status_code,
+                                      url=url,
+                                      bytes=len(response.content) if response.content else '')
+                            if response.status_code != httplib.OK:
+                                log.warn("Unable to retrieve head for entity URL {0}", url)
+                                continue
+                            
+                            if response.headers.get('content-type', '').startswith('image/'):
+                                self.mirror_entity_image(tweet, entity_index, url)
+                            else:
+                                self.screenshot_entity_url(tweet, entity_index, url)
+                            break
+
+
     def handle_deletion(self, tweet):
-        self._debug("Deleted tweet %s!\n" % (tweet['delete']['status']['id']))
+        log.debug("Deleted tweet {0}", tweet['delete']['status']['id'])
         cursor = self.database.cursor()
         cursor.execute("""SELECT COUNT(*) FROM `tweets` WHERE `id` = %s""", (tweet['delete']['status']['id'],))
         num_previous = cursor.fetchone()[0]
@@ -205,7 +222,11 @@ class DeletedTweetsWorker:
             cursor.execute("""REPLACE INTO `tweets` (`id`, `deleted`, `modified`, `created`) VALUES(%s, 1, NOW(), NOW())""", (tweet['delete']['status']['id']))
     
     def handle_new(self, tweet):
-        self._debug("New tweet %s from user %s/%s (%s)!" % (tweet['id'], tweet['user']['id'], tweet['user']['screen_name'], tweet['user']['id'] in self.users.keys()))
+        log.debug("New tweet {tweet} from user {user_id}/{screen_name}",
+                  tweet=tweet.get('id'),
+                  user_id=tweet.get('user', {}).get('id'),
+                  screen_name=tweet.get('user', {}).get('screen_name'))
+
         self.handle_possible_rename(tweet)
         cursor = self.database.cursor()
         cursor.execute("""SELECT COUNT(*), `deleted` FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
@@ -223,15 +244,15 @@ class DeletedTweetsWorker:
 
         if num_previous > 0:
             cursor.execute("""UPDATE `tweets` SET `user_name` = %s, `politician_id` = %s, `content` = %s, `tweet`=%s, `modified`= NOW() WHERE id = %s""", (tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], anyjson.serialize(tweet), tweet['id'],))
-            self._debug("Updated tweet %s\n" % tweet['id'])
+            log.debug("Updated tweet {0}", tweet.get('id'))
         else:
             #cursor.execute("""DELETE FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
             cursor.execute("""INSERT INTO `tweets` (`id`, `user_name`, `politician_id`, `content`, `created`, `modified`, `tweet`) VALUES(%s, %s, %s, %s, NOW(), NOW(), %s)""", (tweet['id'], tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], anyjson.serialize(tweet)))
-            self._debug("Inserted new tweet %s\n" % tweet['id'])
+            log.debug("Inserted new tweet {0}", tweet.get('id'))
 
             
         if was_deleted:
-            self._debug('Tweet deleted before it came! (%s)' % tweet['id'])
+            log.debug("Tweet deleted {0} before it came!", tweet.get('id'))
             self.copy_tweet_to_deleted_table(tweet['id'])
         
         self.stathat_add_count('tweets')
@@ -239,7 +260,8 @@ class DeletedTweetsWorker:
     def handle_image(self, tweet, url):
         cursor = self.database.cursor()
         cursor.execute("""INSERT INTO `tweet_images` (`tweet_id`, `url`, `created_at`, `updated_at`) VALUES(%s, %s, NOW(), NOW())""", (tweet['id'], url))
-        self._debug("Inserted tweet image into database")
+        log.debug("Inserted image into database for tweet {tweet}: {url}",
+                  tweet=tweet.get('id'), url=url)
     
     def copy_tweet_to_deleted_table(self, tweet_id):
         cursor = self.database.cursor()
@@ -258,37 +280,72 @@ class DeletedTweetsWorker:
     
     # screenshot capturing/archiving functionality
 
-    def upload_image(self, tmp_path, dest_filename):
+    def screenshot_entity_url(self, tweet, entity_index, url):
+        filename = "{tweet}-{index}.png".format(tweet=tweet.get('id'),
+                                                index=entity_index)
+        tmp_dir = self.config.get('images', 'tmp_dir')
+        tmp_path = os.path.join(tmp_dir, filename)
+
+        command = "phantomjs js/rasterize.js %s %s" % (url, tmp_path)
+        log.info("Running {0}", command)
+        code = subprocess.call(command, shell=True)
+        log.debug("Command {0} exited with status {1}", command, code)
+        if code != 0:
+            return
+       
+        new_url = self.upload_image(tmp_path, filename, 'image/png')
+        if new_url:
+            self.handle_image(tweet, new_url)
+
+    def mirror_entity_image(self, tweet, entity_index, url):
+        response = requests.get(url)
+        if response.status_code != httplib.OK:
+            log.warn("Failed to download image {0}", url)
+            return
+        content_type = response.headers.get('content-type')
+
+        parsed_url = urlparse.urlparse(url)
+        (_base, extension) = os.path.splitext(parsed_url.path)
+        extension = None
+        if not extension:
+            extensions = [ext for ext in mimetypes.guess_all_extensions(content_type)
+                          if ext != '.jpe']
+            extension = extensions[0] if extensions else ''
+            log.debug("Possible mime types: {0}, chose {1}", extensions, extension)
+        filename = "{tweet}-{index}{extension}".format(tweet=tweet.get('id'),
+                                                       index=entity_index,
+                                                       extension=extension)
+
+        with NamedTemporaryFile(mode='wb', prefix='twoops', delete=True) as fil:
+            fil.write(response.content)
+            fil.flush()
+            new_url = self.upload_image(fil.name, filename, content_type)
+            if new_url:
+                self.handle_image(tweet, new_url)
+
+
+    def upload_image(self, tmp_path, dest_filename, content_type):
         bucket_name = self.config.get('aws', 'bucket_name')
         access_key = self.config.get('aws', 'access_key')
         secret_access_key = self.config.get('aws', 'secret_access_key')
         url_prefix = self.config.get('aws', 'url_prefix')
 
-        dest_path = '%s/%s' % (url_prefix, dest_filename)
+        dest_path = urlparse.urljoin(url_prefix, dest_filename)
+        url = 'http://s3.amazonaws.com/%s/%s' % (bucket_name, dest_path)
 
         conn = S3Connection(access_key, secret_access_key)
         bucket = conn.create_bucket(bucket_name)
         key = Key(bucket)
         key.key = dest_path
         try:
-            key.set_contents_from_filename(tmp_path)
-        except (IOError) as e:
+            key.set_contents_from_filename(tmp_path,
+                                           policy='public-read',
+                                           headers={'Content-Type': content_type})
+            log.debug("Upload image {0} to {1}", tmp_path, url)
+            return url
+        except IOError as e:
+            log.warn("Failed to upload image {0} to {1} because {2}", tmp_path, url, str(e))
             return None
-        key.set_acl('public-read')
-
-        return 'http://%s/%s' % (bucket_name, dest_path)
-
-    def archive_image(self, dest_filename, origin_url):
-        tmp_dir = self.config.get('images', 'tmp_dir')
-        tmp_dest = "%s/%s" % (tmp_dir, dest_filename)
-
-        command = "phantomjs js/rasterize.js %s %s" % (origin_url, tmp_dest)
-        print "Running: %s" % command
-        code = subprocess.call(command, shell=True)
-        if code != 0:
-            return None
-        
-        return self.upload_image(tmp_dest, dest_filename)
 
 def main(argv=None):
     verbose = False
@@ -323,9 +380,9 @@ def main(argv=None):
         return 2
     
     if verbose:
-        print "Starting ..."
+        log.info("Starting Politwoops worker...")
     if images:
-        print "Going to snap screenshots..."
+        log.info("Screenshot support enabled.")
 
     app = DeletedTweetsWorker(verbose, output, images)
     if harden:

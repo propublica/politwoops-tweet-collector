@@ -15,12 +15,15 @@ import MySQLdb
 
 import anyjson
 import beanstalkc
+import logbook
 
 import tweetsclient
 
+log = logbook.Logger(__name__)
+
 class MySQLTrackPlugin(tweetsclient.TrackPlugin):
     def _get_database(self):
-        self._debug("Making DB connection")
+        log.debug("Making DB connection")
         conn = MySQLdb.connect(
             host=self.config.get('database', 'host'),
             port=int(self.config.get('database', 'port')),
@@ -38,7 +41,7 @@ class MySQLTrackPlugin(tweetsclient.TrackPlugin):
         q = "SELECT `%s` FROM `%s`" % (field_name, table_name)
         if conditions:
             q = q + " WHERE %s" % (conditions)
-        self._debug("Executing query " + q)
+        log.debug("Executing query: {0}", q)
         cursor.execute(q)
         return [str(t[0]) for t in cursor.fetchall()]
     

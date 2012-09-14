@@ -20,10 +20,6 @@ class Plugin:
         # set verbose for debug output
         self.verbose = ('verbose' in options) and (options['verbose'])
     
-    def _debug(self, msg):
-        if self.verbose:
-            print >>sys.stderr, msg
-
 class TrackPlugin(Plugin):
     def get_type(self):
         return 'stream' # or 'users' or 'words'

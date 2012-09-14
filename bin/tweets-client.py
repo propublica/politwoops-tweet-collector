@@ -25,6 +25,7 @@ socket._fileobject.default_bufsize = 0
 import httplib
 httplib.HTTPConnection.debuglevel = 1
 
+import logbook
 
 # this is for consuming the streaming API
 import tweetstream
@@ -43,6 +44,8 @@ Options:
   -v     Show verbose output
 '''
 
+
+log = logbook.Logger("tweets-client")
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -73,28 +76,31 @@ class TweetStreamClient:
     def get_queue(self):
         queue_module = self.get_config_default('tweets-client', 'queue-module', 'tweetsclient.beanstalk')
         queue_class = self.get_config_default('tweets-client', 'queue-class', 'BeanstalkPlugin')
-        self._debug("Loading queue plugin : %s - %s" % (queue_module, queue_class))
+        log.debug("Loading queue plugin: {module} - {klass}",
+                  module=queue_module, klass=queue_class)
         pluginClass = self.load_plugin(queue_module, queue_class)
         plugin = pluginClass({'verbose': self.verbose})
         plugin.connect()
         return plugin
 
     def get_config(self):
-        self._debug("Reading config ...")
+        log.debug("Reading config ...")
         self.config = tweetsclient.Config().get()
     
     def get_stream(self):
         queue_module = self.get_config_default('tweets-client', 'track-module', 'tweetsclient.config_track')
         queue_class = self.get_config_default('tweets-client', 'track-class', 'ConfigTrackPlugin')
-        self._debug("Loading track plugin : %s - %s" % (queue_module, queue_class))
+        log.debug("Loading track plugin: {module} - {klass}",
+                  module=queue_module, klass=queue_class)
+
         pluginClass = self.load_plugin(queue_module, queue_class)
         self.track = pluginClass({'verbose': self.verbose})
         #self.track = tweetsclient.MySQLTrackPlugin({'verbose': self.verbose})
         # self.track = tweetsclient.ConfigTrackPlugin({'verbose': self.verbose})
         stream_type = self.track.get_type()
-        self._debug("Initializing a %s stream of tweets" % (stream_type))
+        log.debug("Initializing a {0} stream of tweets.", stream_type)
         track_items = self.track.get_items()
-        self._debug(track_items)
+        log.debug(str(track_items))
         stream = None
         if stream_type == 'users':
             stream = tweetstream.FilterStream(self.user, self.passwd, track_items)
@@ -103,16 +109,12 @@ class TweetStreamClient:
         else:
             stream = tweetstream.TweetStream(self.user, self.passwd)            
         return stream
-
-    def _debug(self, msg):
-        if self.verbose:
-            print >>sys.stderr, msg
     
     def run(self):
         self.queue = self.get_queue()
-        self._debug("Setting up stream ...")
+        log.debug("Setting up stream ...")
         stream = self.get_stream()
-        self._debug("Done setting up stream ...")
+        log.debug("Done setting up stream ...")
         for tweet in stream:
             self.handle_tweet(stream, tweet)
         self.queue.disconnect()
@@ -139,11 +141,12 @@ class TweetStreamClient:
                 self.restartCounter += 1
 
                 if self.restartCounter > 10:
-                    self._debug("Max restarts reached, shutting down")
+                    log.debug("Max restarts reached, shutting down")
                     shouldRestart = False
                     return
                 else:
-                    self._debug("Connection error, restarting for the %s time...\n\t%s" % (self.restartCounter, e.message))
+                    log.debug("Connection error, restarting for the {nth} time: {exception}",
+                              nth=self.restartCounter, exception=str(e))
     
     def handle_tweet(self, stream, tweet):
         # reset the restart counter once a tweet has come in
