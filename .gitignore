@@ -3,3 +3,4 @@ web/
 /conf/tweets-client.ini
 /bin/experiment.py
 /*.sql
+.*.swp
