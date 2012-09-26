@@ -12,12 +12,9 @@ import os
 import getopt
 import time
 import mimetypes
-import threading
-import ConfigParser
 import MySQLdb
 
 import anyjson
-import beanstalkc
 
 import socket
 # disable buffering
@@ -26,11 +23,7 @@ socket._fileobject.default_bufsize = 0
 import httplib
 httplib.HTTPConnection.debuglevel = 1
 
-import urllib
 import urllib2
-import urlparse
-from tempfile import NamedTemporaryFile
-import requests
 import logbook
 
 # external libs
@@ -50,62 +43,8 @@ help_message = '''
 The help message goes here.
 '''
 
-# used for screenshot capturing and archiving
-import subprocess
-from boto.s3.connection import S3Connection
-from boto.s3.key import Key
 
 
-class PhantomJSTimeout(Exception):
-    def __init__(self, cmd, process, stdout, stderr, *args, **kwargs):
-        import ipdb; ipdb.set_trace()
-        msg = u"phantomjs timeout for pid {process.pid}; cmd: {cmd!r} stdout: {stdout!r}, stderr: {stderr!r}".format(process=process, cmd=cmd, stdout=stdout, stderr=stderr)
-        super(PhantomJSTimeout, self).__init__(msg, *args, **kwargs)
-        self.cmd = cmd
-        self.process = process
-        
-
-def run_subprocess_safely(args, timeout=300, timeout_signal=9):
-    """
-    args: sequence of args, see Popen docs for shell=False
-    timeout: maximum runtime in seconds (fractional seconds allowed)
-    timeout_signal: signal to send to the process if timeout elapses
-    """
-    log.debug(u"Starting command: {0}", args)
-
-    process = subprocess.Popen(args=args,
-                               stdin=None,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE)
-
-    deadline_timer = threading.Timer(timeout, process.send_signal, args=(timeout_signal,))
-    deadline_timer.start()
-
-    stdout = ""
-    stderr = ""
-    start_time = time.time()
-    elapsed = 0
-
-    # In practice process.communicate() never seems to return
-    # until the process exits but the documentation implies that
-    # it can because EOF can be reached before the process exits.
-    while not timeout or elapsed < timeout:
-        (stdout1, stderr1) = process.communicate()
-        if stdout1:
-            stdout += stdout1
-        if stderr1:
-            stderr += stderr1
-        elapsed = time.time() - start_time
-        if process.poll() is not None:
-            break
-
-    if elapsed >= timeout:
-        log.warning(u"Process failed to complete within {0} seconds. Return code: {1}", timeout, process.returncode)
-        raise PhantomJSTimeout(args, process, stdout, stderr)
-    else:
-        deadline_timer.cancel()
-        log.notice(u"Process completed in {0} seconds with return code {1}: {2} (stdout: {3!r}) (stderr: {4!r})", elapsed, process.returncode, args, stdout, stderr)
-        return (stdout, stderr)
 
 
 class Usage(Exception):
@@ -118,9 +57,9 @@ class DeletedTweetsWorker:
         self.images = images
         self.get_config()
     
-    def get_database(self):
+    def init_database(self):
         log.debug("Making DB connection")
-        conn = MySQLdb.connect(
+        self.database = MySQLdb.connect(
             host=self.config.get('database', 'host'),
             port=int(self.config.get('database', 'port')),
             db=self.config.get('database', 'database'),
@@ -129,15 +68,19 @@ class DeletedTweetsWorker:
             charset="utf8",
             use_unicode=True
         )
-        conn.autocommit(True) # needed if you're using InnoDB
-        conn.cursor().execute('SET NAMES UTF8')
-        return conn
+        self.database.autocommit(True) # needed if you're using InnoDB
+        self.database.cursor().execute('SET NAMES UTF8')
     
-    def get_beanstalk(self):
-        tube = self.config.get('beanstalk', 'tube')
-        log.info("Initiating beanstalk connection for tube {tube}...", tube=tube)
-        beanstalk = politwoops.utils.beanstalk(host=self.config.get('beanstalk', 'host'), port=int(self.config.get('beanstalk', 'port')), tube=self.config.get('beanstalk', 'tube'))
-        return beanstalk
+    def init_beanstalk(self):
+        tweets_tube = self.config.get('politwoops', 'tweets_tube')
+        screenshot_tube = self.config.get('politwoops', 'screenshot_tube')
+
+        log.info("Initiating beanstalk connection. Watching {watch}, queueing screenshots to {use}...", watch=tweets_tube, use=screenshot_tube)
+
+        self.beanstalk = politwoops.utils.beanstalk(host=self.config.get('beanstalk', 'host'),
+                                                    port=int(self.config.get('beanstalk', 'port')),
+                                                    watch=tweets_tube,
+                                                    use=screenshot_tube)
 
     def get_config(self):
         log.debug("Reading config ...")
@@ -158,8 +101,8 @@ class DeletedTweetsWorker:
 
     def run(self):
         mimetypes.init()
-        self.database = self.get_database()
-        self.beanstalk = self.get_beanstalk()
+        self.init_database()
+        self.init_beanstalk()
         self.users, self.politicians = self.get_users()
         self.stathat = self.get_stathat()
         while True:
@@ -216,45 +159,9 @@ class DeletedTweetsWorker:
                 self.handle_new(tweet)
 
                 if self.images and tweet.has_key('entities'):
-                    entities = []
-                    if tweet['entities'].has_key('urls'):
-                        entities = entities + tweet['entities']['urls']
-                    if tweet['entities'].has_key('media'):
-                        entities = entities + tweet['entities']['media']
-
-                    for entity_index, url_entity in enumerate(entities):
-                        urls = [url for url in [url_entity.get('media_url'),
-                                                url_entity.get('expanded_url'),
-                                                url_entity.get('url')]
-                                if url is not None]
-
-                        log_context={'entity': entity_index,
-                                     'tweet': tweet.get('id'),
-                                     'urls': urls}
-
-                        if len(urls) == 0:
-                            log.info("No URLs for entity {entity} on tweet {tweet}. Skipping.",
-                                     **log_context)
-                            return
-
-                        log.info("URLs for entity {entity} on tweet {tweet}: {urls}",
-                                  **log_context)
-
-                        for url in urls:
-                            response = requests.head(url)
-                            log.info("HEAD {status_code} {url} {bytes}",
-                                      status_code=response.status_code,
-                                      url=url,
-                                      bytes=len(response.content) if response.content else '')
-                            if response.status_code != httplib.OK:
-                                log.warn("Unable to retrieve head for entity URL {0}", url)
-                                continue
-                            
-                            if response.headers.get('content-type', '').startswith('image/'):
-                                self.mirror_entity_image(tweet, entity_index, url)
-                            else:
-                                self.screenshot_entity_url(tweet, entity_index, url)
-                            break
+                    # Queue the tweet for screenshots and/or image mirroring
+                    log.notice("Queued tweet {0} for entity archiving.", tweet['id'])
+                    self.beanstalk.put(anyjson.serialize(tweet))
 
 
     def handle_deletion(self, tweet):
@@ -304,12 +211,6 @@ class DeletedTweetsWorker:
         
         self.stathat_add_count('tweets')
     
-    def handle_image(self, tweet, url):
-        cursor = self.database.cursor()
-        cursor.execute("""INSERT INTO `tweet_images` (`tweet_id`, `url`, `created_at`, `updated_at`) VALUES(%s, %s, NOW(), NOW())""", (tweet['id'], url))
-        log.info("Inserted image into database for tweet {tweet}: {url}",
-                  tweet=tweet.get('id'), url=url)
-    
     def copy_tweet_to_deleted_table(self, tweet_id):
         cursor = self.database.cursor()
         cursor.execute("""INSERT IGNORE INTO `deleted_tweets` SELECT * FROM `tweets` WHERE `id` = %s AND `content` IS NOT NULL""" % (tweet_id))
@@ -327,68 +228,6 @@ class DeletedTweetsWorker:
     
     # screenshot capturing/archiving functionality
 
-    def screenshot_entity_url(self, tweet, entity_index, url):
-        filename = "{tweet}-{index}.png".format(tweet=tweet.get('id'),
-                                                index=entity_index)
-
-        with NamedTemporaryFile(mode='wb', prefix='twoops', suffix='.png', delete=True) as fil:
-            cmd = ["phantomjs", "js/rasterize.js", url, fil.name]
-            (stdout, stderr) = run_subprocess_safely(cmd,
-                                                     timeout=30,
-                                                     timeout_signal=15)
-            new_url = self.upload_image(fil.name, filename, 'image/png')
-            if new_url:
-                self.handle_image(tweet, new_url)
-
-    def mirror_entity_image(self, tweet, entity_index, url):
-        response = requests.get(url)
-        if response.status_code != httplib.OK:
-            log.warn("Failed to download image {0}", url)
-            return
-        content_type = response.headers.get('content-type')
-
-        parsed_url = urlparse.urlparse(url)
-        (_base, extension) = os.path.splitext(parsed_url.path)
-        extension = None
-        if not extension:
-            extensions = [ext for ext in mimetypes.guess_all_extensions(content_type)
-                          if ext != '.jpe']
-            extension = extensions[0] if extensions else ''
-            log.debug("Possible mime types: {0}, chose {1}", extensions, extension)
-        filename = "{tweet}-{index}{extension}".format(tweet=tweet.get('id'),
-                                                       index=entity_index,
-                                                       extension=extension)
-
-        with NamedTemporaryFile(mode='wb', prefix='twoops', delete=True) as fil:
-            fil.write(response.content)
-            fil.flush()
-            new_url = self.upload_image(fil.name, filename, content_type)
-            if new_url:
-                self.handle_image(tweet, new_url)
-
-
-    def upload_image(self, tmp_path, dest_filename, content_type):
-        bucket_name = self.config.get('aws', 'bucket_name')
-        access_key = self.config.get('aws', 'access_key')
-        secret_access_key = self.config.get('aws', 'secret_access_key')
-        url_prefix = self.config.get('aws', 'url_prefix')
-
-        dest_path = urlparse.urljoin(url_prefix, dest_filename)
-        url = 'http://s3.amazonaws.com/%s/%s' % (bucket_name, dest_path)
-
-        conn = S3Connection(access_key, secret_access_key)
-        bucket = conn.create_bucket(bucket_name)
-        key = Key(bucket)
-        key.key = dest_path
-        try:
-            key.set_contents_from_filename(tmp_path,
-                                           policy='public-read',
-                                           headers={'Content-Type': content_type})
-            log.notice("Uploaded image {0} to {1}", tmp_path, url)
-            return url
-        except IOError as e:
-            log.warn("Failed to upload image {0} to {1} because {2}", tmp_path, url, str(e))
-            return None
 
 def main(argv=None):
     loglevel = logbook.NOTICE

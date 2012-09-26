@@ -2,8 +2,10 @@
 
 import beanstalkc
 
-def beanstalk(host='localhost', port=11300, tube='politwoops'):
+def beanstalk(host='localhost', port=11300, watch=None, use=None):
     beanstalk = beanstalkc.Connection(host=host, port=port)
-    beanstalk.use(tube)
-    beanstalk.watch(tube)
+    if use:
+        beanstalk.use(use)
+    if watch:
+        beanstalk.watch(watch)
     return beanstalk

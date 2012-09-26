@@ -13,9 +13,6 @@ import re
 import urllib
 import urllib2
 import ConfigParser
-
-import beanstalkc
-
 from time import sleep
 
 import socket
@@ -25,17 +22,17 @@ socket._fileobject.default_bufsize = 0
 import httplib
 httplib.HTTPConnection.debuglevel = 1
 
+import anyjson
 import logbook
 
 # this is for consuming the streaming API
 import tweetstream
 
-import anyjson
-
 # external libs
 sys.path.insert(0, './lib')
 
 import tweetsclient
+import politwoops
 
 help_message = '''
 Usage: tweets-client.py [-v]
@@ -55,7 +52,7 @@ class TweetStreamClient:
     def __init__(self, verbose, output = None):
         self.verbose = verbose
         self.output = output
-        self.get_config()
+        self.config = tweetsclient.Config().get()
         self.user = self.config.get('tweets-client', 'username')
         self.passwd = self.config.get('tweets-client', 'password')
 
@@ -73,19 +70,15 @@ class TweetStreamClient:
         pluginClass = getattr(pluginModule, plugin_class)
         return pluginClass
 
-    def get_queue(self):
-        queue_module = self.get_config_default('tweets-client', 'queue-module', 'tweetsclient.beanstalk')
-        queue_class = self.get_config_default('tweets-client', 'queue-class', 'BeanstalkPlugin')
-        log.debug("Loading queue plugin: {module} - {klass}",
-                  module=queue_module, klass=queue_class)
-        pluginClass = self.load_plugin(queue_module, queue_class)
-        plugin = pluginClass({'verbose': self.verbose})
-        plugin.connect()
-        return plugin
+    def init_beanstalk(self):
+        tweets_tube = self.config.get('politwoops', 'tweets_tube')
 
-    def get_config(self):
-        log.debug("Reading config ...")
-        self.config = tweetsclient.Config().get()
+        log.info("Initiating beanstalk connection. Queueing tweets to {use}...", use=tweets_tube)
+
+        self.beanstalk = politwoops.utils.beanstalk(host=self.config.get('beanstalk', 'host'),
+                                                    port=int(self.config.get('beanstalk', 'port')),
+                                                    watch=None,
+                                                    use=tweets_tube)
     
     def get_stream(self):
         queue_module = self.get_config_default('tweets-client', 'track-module', 'tweetsclient.config_track')
@@ -111,13 +104,13 @@ class TweetStreamClient:
         return stream
     
     def run(self):
-        self.queue = self.get_queue()
+        self.init_beanstalk()
         log.debug("Setting up stream ...")
         stream = self.get_stream()
         log.debug("Done setting up stream ...")
         for tweet in stream:
             self.handle_tweet(stream, tweet)
-        self.queue.disconnect()
+        self.beanstalk.disconnect()
         return 0
 
     def run_with_restart(self):
@@ -130,6 +123,8 @@ class TweetStreamClient:
             shouldRestart = False
             try:
                 self.run()
+            except AssertionError:
+                raise
             except Exception as e:
                 shouldRestart = True
                 
@@ -152,7 +147,8 @@ class TweetStreamClient:
         # reset the restart counter once a tweet has come in
         self.restartCounter = 0
         # add the tweet to the queue
-        self.queue.add(tweet)
+        log.info(u"Queued tweet {0}", tweet)
+        self.beanstalk.put(anyjson.serialize(tweet))
 
 def main(argv=None):
     if argv is None:
