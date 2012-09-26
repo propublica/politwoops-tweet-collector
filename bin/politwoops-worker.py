@@ -10,11 +10,11 @@ Copyright (c) 2010 __MyCompanyName__. All rights reserved.
 import sys
 import os
 import getopt
+import time
 import mimetypes
+import threading
 import ConfigParser
 import MySQLdb
-
-from time import sleep
 
 import anyjson
 import beanstalkc
@@ -54,6 +54,59 @@ The help message goes here.
 import subprocess
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
+
+
+class PhantomJSTimeout(Exception):
+    def __init__(self, cmd, process, stdout, stderr, *args, **kwargs):
+        import ipdb; ipdb.set_trace()
+        msg = u"phantomjs timeout for pid {process.pid}; cmd: {cmd!r} stdout: {stdout!r}, stderr: {stderr!r}".format(process=process, cmd=cmd, stdout=stdout, stderr=stderr)
+        super(PhantomJSTimeout, self).__init__(msg, *args, **kwargs)
+        self.cmd = cmd
+        self.process = process
+        
+
+def run_subprocess_safely(args, timeout=300, timeout_signal=9):
+    """
+    args: sequence of args, see Popen docs for shell=False
+    timeout: maximum runtime in seconds (fractional seconds allowed)
+    timeout_signal: signal to send to the process if timeout elapses
+    """
+    log.debug(u"Starting command: {0}", args)
+
+    process = subprocess.Popen(args=args,
+                               stdin=None,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+
+    deadline_timer = threading.Timer(timeout, process.send_signal, args=(timeout_signal,))
+    deadline_timer.start()
+
+    stdout = ""
+    stderr = ""
+    start_time = time.time()
+    elapsed = 0
+
+    # In practice process.communicate() never seems to return
+    # until the process exits but the documentation implies that
+    # it can because EOF can be reached before the process exits.
+    while not timeout or elapsed < timeout:
+        (stdout1, stderr1) = process.communicate()
+        if stdout1:
+            stdout += stdout1
+        if stderr1:
+            stderr += stderr1
+        elapsed = time.time() - start_time
+        if process.poll() is not None:
+            break
+
+    if elapsed >= timeout:
+        log.warning(u"Process failed to complete within {0} seconds. Return code: {1}", timeout, process.returncode)
+        raise PhantomJSTimeout(args, process, stdout, stderr)
+    else:
+        deadline_timer.cancel()
+        log.notice(u"Process completed in {0} seconds with return code {1}: {2} (stdout: {3!r}) (stderr: {4!r})", elapsed, process.returncode, args, stdout, stderr)
+        return (stdout, stderr)
+
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -110,7 +163,7 @@ class DeletedTweetsWorker:
         self.users, self.politicians = self.get_users()
         self.stathat = self.get_stathat()
         while True:
-            sleep(0.2)
+            time.sleep(0.2)
             job = self.beanstalk.reserve(timeout=0)
             if job:
                 self.handle_tweet(job.body)
@@ -128,7 +181,7 @@ class DeletedTweetsWorker:
                 self.run()
             except Exception as e:
                 shouldRestart = True
-                sleep(1) # restart after a second
+                time.sleep(1) # restart after a second
 
                 self.restartCounter += 1
                 log.error("Some sort of error, restarting for the {nth} time: {exception}",
@@ -277,19 +330,15 @@ class DeletedTweetsWorker:
     def screenshot_entity_url(self, tweet, entity_index, url):
         filename = "{tweet}-{index}.png".format(tweet=tweet.get('id'),
                                                 index=entity_index)
-        tmp_dir = self.config.get('images', 'tmp_dir')
-        tmp_path = os.path.join(tmp_dir, filename)
 
-        command = "phantomjs js/rasterize.js %s %s" % (url, tmp_path)
-        log.debug("Running {0}", command)
-        code = subprocess.call(command, shell=True)
-        log.info("Command {0} exited with status {1}", command, code)
-        if code != 0:
-            return
-       
-        new_url = self.upload_image(tmp_path, filename, 'image/png')
-        if new_url:
-            self.handle_image(tweet, new_url)
+        with NamedTemporaryFile(mode='wb', prefix='twoops', suffix='.png', delete=True) as fil:
+            cmd = ["phantomjs", "js/rasterize.js", url, fil.name]
+            (stdout, stderr) = run_subprocess_safely(cmd,
+                                                     timeout=30,
+                                                     timeout_signal=15)
+            new_url = self.upload_image(fil.name, filename, 'image/png')
+            if new_url:
+                self.handle_image(tweet, new_url)
 
     def mirror_entity_image(self, tweet, entity_index, url):
         response = requests.get(url)

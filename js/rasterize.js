@@ -1,50 +1,77 @@
+// OverallTimeout prevents the script from running forever.
+var OverallTimeout = 15 * 1000;
+
+// RenderDelayTimeout allows for redirects. Half a second should
+// be sufficient. Two seconds is super-safe.
+var RenderDelayTimeout = 2 * 1000;
+
+// How long to delay before attempted to render again
+// if the last-scheduled rendering fails.
+var RenderRetryDelayTimeout = 2 * 1000;
+
+// Output image size
+var WindowWidth = 1280;
+var WindowHeight = 1024;
+
+
+
 var page = new WebPage(),
-    address, output, size;
+address, output, size;
 
-if (phantom.args.length < 2 || phantom.args.length > 3) {
-    console.log('Usage: rasterize.js URL filename');
-    phantom.exit();
+var current_timeout = null;
+
+if (phantom.args.length < 1 || phantom.args.length > 2) {
+  console.log('Usage: rasterize.js URL filename');
+  phantom.exit();
 } else {
-    address = phantom.args[0];
-    output = phantom.args[1];
-    page.viewportSize = { width: 1280, height: 1024 };
-    page.clipRect = { width: 1280, height: 1024 };
-    
-    var retries = 0;
-    var deathClock = false;
+  console.log('RenderDelayTimeout:', RenderRetryDelayTimeout);
 
-    // final death clock, 30 seconds max for everything
-    window.setTimeout(function() {
-        console.log("Timeout, giving up");
-        phantom.exit();
-    }, 30000);
+  window.setTimeout(function() {
+    console.log("Timeout, giving up.");
+    phantom.exit();
+  }, OverallTimeout);
 
-    page.open(address, function (status) {
-        if (status == 'success') {
-            window.setTimeout(function () {
-                if (page.render(output)) {
-                    console.log("Rendered results, stopping");
-                    phantom.exit();
-                } else if (retries < 5) {
-                    retries += 1;
-                    console.log("Didn't render, assuming a redirect, waiting for a new callback (#" + retries + ")");
-                    if (!deathClock) {
-                        deathClock = true;
-                        console.log("Setting death clock of 7 seconds, in case this isn't a redirect");
-                        window.setTimeout(function() {
-                            phantom.exit();
-                        }, 7000);
-                    }
-                } else {
-                    console.log("Too many retries (" + retries + "), giving up");
-                    phantom.exit();
-                }
-            }, 200);
-        } else {
-            console.log('Unable to load the address!');
-            window.setTimeout(function () {
-                phantom.exit();
-            }, 200);
-        }
-    });
+  address = phantom.args[0];
+  output = phantom.args[1];
+
+  var render_page = function () {
+    var href = page.evaluate(function(){ return window.location.href; });
+    var result = page.render(output);
+    var success_or_failure = (result == true) ? 'success' : 'failure';
+    console.log('Rendering', success_or_failure, 'for', href);
+    return result;
+  };
+  var render_page_retry = function () {
+    var result = render_page();
+    if (result == false) {
+      console.log('Final rendering attempt failed.');
+    }
+    phantom.exit();
+  };
+  var render_page_first_try = function () {
+    var result = render_page();
+    if (result == true) {
+      phantom.exit();
+    } else {
+      setTimeout(render_page_retry, RenderRetryDelayTimeout);
+    }
+  };
+
+  page.onConsoleMessage = function (msg) {
+    console.log('Console Message:', msg);
+  };
+  page.onLoadStarted = function () {
+    if (current_timeout != null) {
+      console.log('Previous rendering schedule canceled.');
+      clearTimeout(current_timeout);
+    }
+  };
+  page.onLoadFinished = function (status) {
+    page.viewportSize = { width: WindowWidth, height: WindowHeight };
+    page.clipRect = { width: WindowWidth, height: WindowHeight };
+    current_timeout = setTimeout(render_page_first_try, RenderDelayTimeout);
+    console.log('Will render in ' + (RenderDelayTimeout / 1000) + ' secs');
+  };
+  page.open(address);
 }
+
