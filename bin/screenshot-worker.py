@@ -33,7 +33,6 @@ log = logbook.Logger(os.path.basename(__file__)
 
 class PhantomJSTimeout(Exception):
     def __init__(self, cmd, process, stdout, stderr, *args, **kwargs):
-        import ipdb; ipdb.set_trace()
         msg = u"phantomjs timeout for pid {process.pid}; cmd: {cmd!r} stdout: {stdout!r}, stderr: {stderr!r}".format(process=process, cmd=cmd, stdout=stdout, stderr=stderr)
         super(PhantomJSTimeout, self).__init__(msg, *args, **kwargs)
         self.cmd = cmd
