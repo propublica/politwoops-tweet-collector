@@ -12,6 +12,11 @@ import os
 import time
 import mimetypes
 import argparse
+import MySQLdb
+import anyjson
+import smtplib
+from email.mime.text import MIMEText
+from datetime import datetime
 
 import socket
 # disable buffering
@@ -143,6 +148,10 @@ class DeletedTweetsWorker:
             self.copy_tweet_to_deleted_table(tweet['delete']['status']['id'])
         else:
             cursor.execute("""REPLACE INTO `tweets` (`id`, `deleted`, `modified`, `created`) VALUES(%s, 1, NOW(), NOW())""", (tweet['delete']['status']['id']))
+
+        cursor.execute("""SELECT * FROM `tweets` WHERE `id` = %s""", (tweet['delete']['status']['id'],))
+        ref_tweet = cursor.fetchone()  
+        self.send_alert(ref_tweet[1], ref_tweet[2], ref_tweet[4])
     
     def handle_new(self, tweet):
         log.notice("New tweet {tweet} from user {user_id}/{screen_name}",
@@ -195,6 +204,25 @@ class DeletedTweetsWorker:
             cursor.execute("""UPDATE `politicians` SET `user_name` = %s WHERE `id` = %s""", (tweet_user_name, self.users[tweet_user_id]))
     
     
+
+    def send_alert(self, username, text, created):
+        host = self.config.get('moderation-alerts', 'mail_host')
+        port = self.config.get('moderation-alerts', 'mail_port')
+        user = self.config.get('moderation-alerts', 'mail_username')
+        password = self.config.get('moderation-alerts', 'mail_password')
+        recipient = self.config.get('moderation-alerts', 'recipient')
+        sender = self.config.get('moderation-alerts', 'sender')
+
+        nowtime = datetime.now()
+        diff = nowtime - created 
+        smtp = smtplib.SMTP(host, port)
+        smtp.login(user, password)
+        msg = MIMEText(text, 'plain')
+        msg['Subject'] = 'Politwoop! @%s -- deleted at %s after %s' % (username, nowtime.strftime('%m-%d-%Y %I:%M:%s %p'), diff)
+        msg['From'] = sender
+        msg['To'] = recipient
+        smtp.sendmail(sender, recipient, msg.as_string())
+
 def main(args):
     log_handler = politwoops.utils.configure_log_handler(args.loglevel, args.output)
     with logbook.NullHandler():
