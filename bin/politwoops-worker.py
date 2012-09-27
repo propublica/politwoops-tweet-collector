@@ -9,12 +9,9 @@ Copyright (c) 2010 __MyCompanyName__. All rights reserved.
 
 import sys
 import os
-import getopt
 import time
 import mimetypes
-import MySQLdb
-
-import anyjson
+import argparse
 
 import socket
 # disable buffering
@@ -24,13 +21,10 @@ import httplib
 httplib.HTTPConnection.debuglevel = 1
 
 import urllib2
+import MySQLdb
+import anyjson
 import logbook
-
-# external libs
-sys.path.insert(0, './lib')
-
 import tweetsclient
-
 import politwoops
 
 from stathat import StatHat
@@ -38,14 +32,6 @@ from stathat import StatHat
 log = logbook.Logger(os.path.basename(__file__)
                      if __name__ == "__main__"
                      else __name__)
-
-help_message = '''
-The help message goes here.
-'''
-
-
-
-
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -75,7 +61,9 @@ class DeletedTweetsWorker:
         tweets_tube = self.config.get('politwoops', 'tweets_tube')
         screenshot_tube = self.config.get('politwoops', 'screenshot_tube')
 
-        log.info("Initiating beanstalk connection. Watching {watch}, queueing screenshots to {use}...", watch=tweets_tube, use=screenshot_tube)
+        log.info("Initiating beanstalk connection. Watching {watch}.", watch=tweets_tube)
+        if self.images:
+            log.info("Queueing screenshots to {use}.", use=screenshot_tube)
 
         self.beanstalk = politwoops.utils.beanstalk(host=self.config.get('beanstalk', 'host'),
                                                     port=int(self.config.get('beanstalk', 'port')),
@@ -112,25 +100,6 @@ class DeletedTweetsWorker:
                 self.handle_tweet(job.body)
                 job.delete()
 
-    def run_with_restart(self):
-        # keeps tabs on whether we should restart the connection to Twitter ourselves
-        shouldRestart = True
-        # keeps tabs on how many times we've unsuccesfully restarted -- more means longer waiting times
-        self.restartCounter = 0
-        
-        while shouldRestart:
-            shouldRestart = False
-            try:
-                self.run()
-            except Exception as e:
-                shouldRestart = True
-                time.sleep(1) # restart after a second
-
-                self.restartCounter += 1
-                log.error("Some sort of error, restarting for the {nth} time: {exception}",
-                          nth=self.restartCounter,
-                          exception=str(e))
-    
     def get_stathat(self):
         stathat_enabled = (self.config.get('stathat', 'enabled') == 'yes')
         if not stathat_enabled:
@@ -226,78 +195,39 @@ class DeletedTweetsWorker:
             cursor.execute("""UPDATE `politicians` SET `user_name` = %s WHERE `id` = %s""", (tweet_user_name, self.users[tweet_user_id]))
     
     
-    # screenshot capturing/archiving functionality
-
-
-def main(argv=None):
-    loglevel = logbook.NOTICE
-    loglevel_name = "NOTICE"
-    images = False
-    output = None
-    harden = True
-    
-    if argv is None:
-        argv = sys.argv
-    try:
-        try:
-            opts, args = getopt.getopt(argv[1:], "hl:o:ivr", ["help", "loglevel=", "output=", "images", "raise"])
-        except getopt.error, msg:
-            raise Usage(msg)
-        
-        # option processing
-        for option, value in opts:
-            if option == "-v":
-                raise Usage("The verbose option (-v) is no longer supported. Use the loglevel option (-l) instead.")
-            if option in ("-h", "--help"):
-                raise Usage(help_message)
-            if option in ("-l", "--loglevel"):
-                loglevel_name = value.upper()
-                if not hasattr(logbook, loglevel_name):
-                    raise Usage("Invalid {0} value: {1}".format(option, value))
-                loglevel = getattr(logbook, loglevel_name)
-                if not isinstance(loglevel, int):
-                    raise Usage("Invalid {0} value: {1}".format(option, value))
-            if option in ("-o", "--output"):
-                output = value
-            if option in ("-i", "--images"):
-                images = True
-            if option in ("-r", "--raise"):
-                harden = False
-    
-    except Usage, err:
-        print >> sys.stderr, sys.argv[0].split("/")[-1] + ": " + str(err.msg)
-        print >> sys.stderr, "\t for help use --help"
-        return 2
-
-    if output == 'syslog':
-        log_handler = logbook.SyslogHandler(
-            application_name='politwoops-worker',
-            bubble=False,
-            level=loglevel)
-    elif output == '-' or not output:
-        log_handler = logbook.StderrHandler(
-            level=loglevel,
-            bubble=False)
-    else:
-        log_handler = logbook.FileHandler(
-            filename=output,
-            encoding='utf-8',
-            level=loglevel,
-            bubble=False)
-
+def main(args):
+    log_handler = politwoops.utils.configure_log_handler(args.loglevel, args.output)
     with logbook.NullHandler():
         with log_handler.applicationbound():
-            log.info("Starting Politwoops worker...")
-            log.notice("Log level {0}".format(loglevel_name))
-            if images:
-                log.notice("Screenshot support enabled.")
+            try:
+                log.info("Starting Politwoops worker...")
+                log.notice("Log level {0}".format(log_handler.level_name))
+                if args.images:
+                    log.notice("Screenshot support enabled.")
 
-            app = DeletedTweetsWorker(images)
-            if harden:
-                return app.run_with_restart()
-            else:
-                return app.run()
+                app = DeletedTweetsWorker(args.images)
+                if args.restart:
+                    return politwoops.utils.run_with_restart(app.run)
+                else:
+                    return app.run()
+            except KeyboardInterrupt:
+                log.notice("Killed by CTRL-C")
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    args_parser = argparse.ArgumentParser(description=__doc__)
+    args_parser.add_argument('--loglevel', metavar='LEVEL', type=str,
+                             help='Logging level (default: notice)',
+                             default='notice',
+                             choices=('debug', 'info', 'notice', 'warning',
+                                      'error', 'critical'))
+    args_parser.add_argument('--output', metavar='DEST', type=str,
+                             default='-',
+                             help='Destination for log output (-, syslog, or filename)')
+    args_parser.add_argument('--images', default=False, action='store_true',
+                             help='Whether to screenshot links or mirror images linked in tweets.')
+    args_parser.add_argument('--restart', default=False, action='store_true',
+                             help='Restart when an error cannot be handled.')
+
+    args = args_parser.parse_args()
+    sys.exit(main(args))

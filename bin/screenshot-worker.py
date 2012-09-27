@@ -7,6 +7,7 @@ screenshots of or image entities to be mirrored.
 
 import os
 import sys
+import re
 import time
 import httplib
 import mimetypes
@@ -31,13 +32,47 @@ log = logbook.Logger(os.path.basename(__file__)
                      if __name__ == "__main__"
                      else __name__)
 
+
 class PhantomJSTimeout(Exception):
     def __init__(self, cmd, process, stdout, stderr, *args, **kwargs):
         msg = u"phantomjs timeout for pid {process.pid}; cmd: {cmd!r} stdout: {stdout!r}, stderr: {stderr!r}".format(process=process, cmd=cmd, stdout=stdout, stderr=stderr)
         super(PhantomJSTimeout, self).__init__(msg, *args, **kwargs)
         self.cmd = cmd
         self.process = process
-        
+
+
+def ensure_phantomjs_is_runnable():
+    """
+    phantomjs must be on the PATH environment variable. This
+    tries to run it and log the version, raising an error if
+    it fails.
+    """
+    try:
+        process = subprocess.Popen(args=['phantomjs', '--version'],
+                                   stdin=None,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+    except OSError as e:
+        if e.errno == 2: # No such file or directory
+            log.critical("Unable to find phantomjs")
+            sys.exit(1)
+
+    process.wait()
+    stdout = process.stdout.read()
+    stderr = process.stderr.read()
+
+    if process.returncode != 0:
+        log.critical("Unable to execute phantomjs --version: {stdout!r} {stderr!r}",
+                     stdout=stdout, stderr=stderr)
+        sys.exit(1)
+
+    match = re.match('^\d+\.\d+\.\d+$', stdout.strip())
+    if match is None:
+        log.critical("Unrecognized version of phantomjs: {stdout!r}", stdout)
+        sys.exit(1)
+
+    log.notice("Found phantomjs version {version}", version=match.group())
+
 
 def run_subprocess_safely(args, timeout=300, timeout_signal=9):
     """
@@ -133,8 +168,8 @@ class TweetEntityWorker(object):
                     self.process_entities(tweet)
                     job.delete()
                 except Exception as e:
-                    job.bury()
                     log.error("Exception caught, burying screenshot job: {0}", e)
+                    job.bury()
 
     def process_entities(self, tweet):
         entities = []
@@ -248,27 +283,20 @@ class TweetEntityWorker(object):
             return None
 
 def main(args):
-    loglevel = getattr(logbook, args.loglevel.upper())
-    if args.output == 'syslog':
-        log_handler = logbook.SyslogHandler(
-            application_name='politwoops-worker',
-            bubble=False,
-            level=loglevel)
-    elif args.output == '-' or not args.output:
-        log_handler = logbook.StderrHandler(
-            level=loglevel,
-            bubble=False)
-    else:
-        log_handler = logbook.FileHandler(
-            filename=args.output,
-            encoding='utf-8',
-            level=loglevel,
-            bubble=False)
-
+    log_handler = politwoops.utils.configure_log_handler(args.loglevel, args.output)
     with logbook.NullHandler():
         with log_handler.applicationbound():
-            worker = TweetEntityWorker()
-            worker.run()
+            try:
+                log.notice("Log level {0}".format(log_handler.level_name))
+                ensure_phantomjs_is_runnable()
+
+                worker = TweetEntityWorker()
+                if args.restart:
+                    politwoops.utils.run_with_restart(worker.run)
+                else:
+                    worker.run()
+            except KeyboardInterrupt:
+                log.notice("Killed by CTRL-C")
 
 if __name__ == "__main__":
     args_parser = argparse.ArgumentParser(description=__doc__)
@@ -280,6 +308,8 @@ if __name__ == "__main__":
     args_parser.add_argument('--output', metavar='DEST', type=str,
                              default='-',
                              help='Destination for log output (-, syslog, or filename)')
+    args_parser.add_argument('--restart', default=False, action='store_true',
+                             help='Restart when an error cannot be handled.')
     args = args_parser.parse_args()
     sys.exit(main(args))
 

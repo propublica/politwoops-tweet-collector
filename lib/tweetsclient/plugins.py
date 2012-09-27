@@ -17,8 +17,6 @@ class Plugin:
         self.options = options
         # get config
         self.config = tweetsclient.Config().get()
-        # set verbose for debug output
-        self.verbose = ('verbose' in options) and (options['verbose'])
     
 class TrackPlugin(Plugin):
     def get_type(self):
