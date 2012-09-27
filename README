@@ -27,10 +27,13 @@ In the [aws] section, add your access key, secret access key, bucket name, and a
 
 Run tweets-client.py to start streaming items from Twitter into the beanstalk queue. Append the lib directory to the PYTHONPATH, either persistently or as part of the command:
 
-PYTHONPATH=$PYTHONPATH:/path/to/politwoops-twitter-client/lib ./bin/tweets-client.py -v
+PYTHONPATH=$PYTHONPATH:`pwd`/lib ./bin/tweets-client.py -v
 
 Then run politwoops-worker.py to start pulling the tweets out of beanstalk and loading them into MySQL:
 
-PYTHONPATH=$PYTHONPATH:/path/to/politwoops-twitter-client/lib ./bin/politwoops-worker.py -v
+PYTHONPATH=$PYTHONPATH:`pwd`/lib ./bin/politwoops-worker.py -v
+
+Finally, if you ran politwoops-worker.py with the images option turned on, run screenshot-worker.py to grab screenshots of webpages and mirror images linked in tweets.
 
 
+PYTHONPATH=$PYTHONPATH:`pwd`/lib ./bin/screenshot-worker.py
