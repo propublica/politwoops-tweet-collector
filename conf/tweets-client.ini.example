@@ -46,3 +46,14 @@ access_key=
 secret_access_key=
 bucket_name=
 url_prefix=
+
+# preferences for administration alerts
+# If you want to disable email alerts, delete this entire section.
+[moderation-alerts]
+max_tweets=3
+mail_host=
+mail_username=
+mail_password=
+mail_port=25
+recipient=
+sender=

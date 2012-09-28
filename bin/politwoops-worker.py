@@ -204,39 +204,40 @@ class DeletedTweetsWorker:
             cursor.execute("""UPDATE `politicians` SET `user_name` = %s WHERE `id` = %s""", (tweet_user_name, self.users[tweet_user_id]))
     
     
-
     def send_alert(self, username, created, text):
-        host = self.config.get('moderation-alerts', 'mail_host')
-        port = self.config.get('moderation-alerts', 'mail_port')
-        user = self.config.get('moderation-alerts', 'mail_username')
-        password = self.config.get('moderation-alerts', 'mail_password')
-        recipient = self.config.get('moderation-alerts', 'recipient')
-        sender = self.config.get('moderation-alerts', 'sender')
+        if self.config.has_section('moderation-alerts'):
+            host = self.config.get('moderation-alerts', 'mail_host')
+            port = self.config.get('moderation-alerts', 'mail_port')
+            user = self.config.get('moderation-alerts', 'mail_username')
+            password = self.config.get('moderation-alerts', 'mail_password')
+            recipient = self.config.get('moderation-alerts', 'recipient')
+            sender = self.config.get('moderation-alerts', 'sender')
 
-        if not text:
-            #in case text is None from a deleted but not originally captured deleted tweet
-            text = ''
+            if not text:
+                #in case text is None from a deleted but not originally captured deleted tweet
+                text = ''
 
-        nowtime = datetime.now()
-        diff = nowtime - created 
-        diffstr = ''
-        if diff.days != 0:
-            diffstr += '%s days' % diff.days
-        else:
-            if diff.seconds > 86400:
-                diffstr += "%s hours" % (diff.seconds / 3600 )
-            elif diff.seconds > 60:
-                diffstr += "%s minutes" % (diff.seconds / 60)
+            nowtime = datetime.now()
+            diff = nowtime - created 
+            diffstr = ''
+            if diff.days != 0:
+                diffstr += '%s days' % diff.days
             else:
-                diffstr += "%s seconds" % diff.seconds
+                if diff.seconds > 86400:
+                    diffstr += "%s hours" % (diff.seconds / 3600 )
+                elif diff.seconds > 60:
+                    diffstr += "%s minutes" % (diff.seconds / 60)
+                else:
+                    diffstr += "%s seconds" % diff.seconds
 
-        smtp = smtplib.SMTP(host, port)
-        smtp.login(user, password)
-        msg = MIMEText(text.encode('UTF-8'), 'plain', 'UTF-8')
-        msg['Subject'] = 'Politwoop! @%s -- deleted on %s after %s' % (username, nowtime.strftime('%m-%d-%Y %I:%M %p'), diffstr)
-        msg['From'] = sender
-        msg['To'] = recipient
-        smtp.sendmail(sender, recipient, msg.as_string())
+            smtp = smtplib.SMTP(host, port)
+            smtp.login(user, password)
+            msg = MIMEText(text.encode('UTF-8'), 'plain', 'UTF-8')
+            msg['Subject'] = 'Politwoop! @%s -- deleted on %s after %s' % (username, nowtime.strftime('%m-%d-%Y %I:%M %p'), diffstr)
+            msg['From'] = sender
+            msg['To'] = recipient
+            smtp.sendmail(sender, recipient, msg.as_string())
+
 
 def main(args):
     log_handler = politwoops.utils.configure_log_handler(args.loglevel, args.output)
