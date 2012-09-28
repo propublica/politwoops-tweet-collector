@@ -1,9 +1,3 @@
-[politwoops]
-# The name of the beanstalk queue to dump new tweets into
-tweets_tube=
-# The name of the beanstalk queue for screenshot jobs
-screenshot_tube=
-
 # fill in Twitter account username and password
 [tweets-client]
 username=
@@ -21,6 +15,10 @@ track-class=MySQLTrackPlugin
 [beanstalk]
 host=localhost
 port=11300
+# The name of the beanstalk queue to dump new tweets into
+tweets_tube=
+# The name of the beanstalk queue for screenshot jobs
+screenshot_tube=
 
 # replace database information if necessary
 [database]

@@ -63,8 +63,8 @@ class DeletedTweetsWorker:
         self.database.cursor().execute('SET NAMES UTF8')
     
     def init_beanstalk(self):
-        tweets_tube = self.config.get('politwoops', 'tweets_tube')
-        screenshot_tube = self.config.get('politwoops', 'screenshot_tube')
+        tweets_tube = self.config.get('beanstalk', 'tweets_tube')
+        screenshot_tube = self.config.get('beanstalk', 'screenshot_tube')
 
         log.info("Initiating beanstalk connection. Watching {watch}.", watch=tweets_tube)
         if self.images:

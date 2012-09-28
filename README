@@ -6,22 +6,26 @@ Requires installing the libevent-dev package on apt-based systems.
 
 = Install Python dependencies
 
-* beanstalkc (pip install)
-* anyjson (pip install)
-* pyyaml (pip install)
-* boto (pip install)
-* tweetstream (1.1.1, install from https://bitbucket.org/runeh/tweetstream/src)
-* MySQLdb (python-mysqldb package on apt-based systems)
+If you're using pip, `pip install -r requirements.txt` should be sufficient.
+
+* beanstalkc
+* anyjson
+* pyyaml
+* boto
+* tweetstream
+* requests
+* MySQLdb
+* argparse (included in python 2.7+)
 
 = Edit config file
 
 In the [tweets-client] section, add your Twitter account's username and password. It is this account that will be authenticated against to make the API requests.
 
-In the [beanstalk] section, change the "tube" parameter to the name you want to use for your queue in beanstalk.
+In the [beanstalk] section, change the parameters "tweets_tube" and "screenshot_tube". The values don't matter much, they just need to be unique.
 
 In the [database] section, update the "host", "port", "username", "password", and "database" sections with your own details, if the defaults are not appropriate.
 
-In the [aws] section, add your access key, secret access key, bucket name, and any path prefix inside the bucket you want to use.
+In the [aws] section, add your access key, secret access key, bucket name, and any path prefix inside the bucket you want to use. This is for archiving images and screenshots of tweeted links.
 
 = Running
 

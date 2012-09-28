@@ -57,7 +57,7 @@ class TweetStreamClient:
         return pluginClass
 
     def init_beanstalk(self):
-        tweets_tube = self.config.get('politwoops', 'tweets_tube')
+        tweets_tube = self.config.get('beanstalk', 'tweets_tube')
 
         log.info("Initiating beanstalk connection. Queueing tweets to {use}...", use=tweets_tube)
 

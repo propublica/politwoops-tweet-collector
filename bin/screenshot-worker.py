@@ -139,7 +139,7 @@ class TweetEntityWorker(object):
     def run(self):
         mimetypes.init()
         log.debug("Initialized mime type database.")
-        screenshot_tube = self.config.get('politwoops', 'screenshot_tube')
+        screenshot_tube = self.config.get('beanstalk', 'screenshot_tube')
         self.beanstalk = politwoops.utils.beanstalk(
             host=self.config.get('beanstalk', 'host'),
             port=int(self.config.get('beanstalk', 'port')),
