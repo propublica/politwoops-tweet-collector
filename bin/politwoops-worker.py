@@ -15,6 +15,7 @@ import argparse
 import MySQLdb
 import anyjson
 import smtplib
+import signal
 from email.mime.text import MIMEText
 from datetime import datetime
 
@@ -240,9 +241,12 @@ class DeletedTweetsWorker:
 
 
 def main(args):
+    signal.signal(signal.SIGHUP, politwoops.utils.restart_process)
+
     log_handler = politwoops.utils.configure_log_handler(args.loglevel, args.output)
     with logbook.NullHandler():
         with log_handler.applicationbound():
+            politwoops.utils.start_heartbeat_thread()
             try:
                 log.info("Starting Politwoops worker...")
                 log.notice("Log level {0}".format(log_handler.level_name))

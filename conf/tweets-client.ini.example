@@ -10,6 +10,12 @@ type=users
 track-module=tweetsclient.mysql_track
 track-class=MySQLTrackPlugin
 
+# Directory in which to create heartbeat files.
+# The directory should otherwise be empty.
+heartbeats_directory=
+# Interval in seconds that the heartbeat files should be touched
+heartbeat_interval=30
+
 # Beanstalk server connection info. The tubes 
 # are configured in the politwoops section above.
 [beanstalk]

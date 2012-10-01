@@ -15,6 +15,7 @@ import urlparse
 import subprocess
 import threading
 import argparse
+import signal
 from tempfile import NamedTemporaryFile
 
 import anyjson
@@ -283,9 +284,12 @@ class TweetEntityWorker(object):
             return None
 
 def main(args):
+    signal.signal(signal.SIGHUP, politwoops.utils.restart_process)
+
     log_handler = politwoops.utils.configure_log_handler(args.loglevel, args.output)
     with logbook.NullHandler():
         with log_handler.applicationbound():
+            politwoops.utils.start_heartbeat_thread()
             try:
                 log.notice("Log level {0}".format(log_handler.level_name))
                 ensure_phantomjs_is_runnable()

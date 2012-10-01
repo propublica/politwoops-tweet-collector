@@ -10,6 +10,7 @@ Copyright (c) 2010 Back-End-Front Web Development. All rights reserved.
 import os
 import sys
 import argparse
+import signal
 import ConfigParser
 
 import socket
@@ -107,9 +108,12 @@ class TweetStreamClient:
         self.beanstalk.put(anyjson.serialize(tweet))
 
 def main(args):
+    signal.signal(signal.SIGHUP, politwoops.utils.restart_process)
+
     log_handler = politwoops.utils.configure_log_handler(args.loglevel, args.output)
     with logbook.NullHandler():
         with log_handler.applicationbound():
+            politwoops.utils.start_heartbeat_thread()
             log.debug("Starting tweets-client.py")
             try:
                 app = TweetStreamClient()
