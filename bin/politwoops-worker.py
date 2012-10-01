@@ -151,7 +151,7 @@ class DeletedTweetsWorker:
 
         cursor.execute("""SELECT * FROM `tweets` WHERE `id` = %s""", (tweet['delete']['status']['id'],))
         ref_tweet = cursor.fetchone()  
-        self.send_alert(ref_tweet[1], ref_tweet[2], ref_tweet[4])
+        self.send_alert(ref_tweet[1], ref_tweet[4], ref_tweet[2])
     
     def handle_new(self, tweet):
         log.notice("New tweet {tweet} from user {user_id}/{screen_name}",
@@ -205,7 +205,7 @@ class DeletedTweetsWorker:
     
     
 
-    def send_alert(self, username, text, created):
+    def send_alert(self, username, created, text):
         host = self.config.get('moderation-alerts', 'mail_host')
         port = self.config.get('moderation-alerts', 'mail_port')
         user = self.config.get('moderation-alerts', 'mail_username')
@@ -213,12 +213,27 @@ class DeletedTweetsWorker:
         recipient = self.config.get('moderation-alerts', 'recipient')
         sender = self.config.get('moderation-alerts', 'sender')
 
+        if not text:
+            #in case text is None from a deleted but not originally captured deleted tweet
+            text = ''
+
         nowtime = datetime.now()
         diff = nowtime - created 
+        diffstr = ''
+        if diff.days != 0:
+            diffstr += '%s days' % diff.days
+        else:
+            if diff.seconds > 86400:
+                diffstr += "%s hours" % (diff.seconds / 3600 )
+            elif diff.seconds > 60:
+                diffstr += "%s minutes" % (diff.seconds / 60)
+            else:
+                diffstr += "%s seconds" % diff.seconds
+
         smtp = smtplib.SMTP(host, port)
         smtp.login(user, password)
-        msg = MIMEText(text, 'plain')
-        msg['Subject'] = 'Politwoop! @%s -- deleted at %s after %s' % (username, nowtime.strftime('%m-%d-%Y %I:%M:%s %p'), diff)
+        msg = MIMEText(text.encode('UTF-8'), 'plain', 'UTF-8')
+        msg['Subject'] = 'Politwoop! @%s -- deleted on %s after %s' % (username, nowtime.strftime('%m-%d-%Y %I:%M %p'), diffstr)
         msg['From'] = sender
         msg['To'] = recipient
         smtp.sendmail(sender, recipient, msg.as_string())
