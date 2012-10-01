@@ -92,7 +92,7 @@ def start_heartbeat_thread():
 
     config = tweetsclient.Config().get()
     try:
-        heartbeat_interval = config.get('tweets-client', 'heartbeat_interval')
+        heartbeat_interval = float(config.get('tweets-client', 'heartbeat_interval'))
     except:
         logbook.warning("No heartbeat_interval configuration parameter, skipping heartbeat.")
         return
