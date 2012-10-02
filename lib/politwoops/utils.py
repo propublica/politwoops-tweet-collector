@@ -23,7 +23,7 @@ def beanstalk(host='localhost', port=11300, watch=None, use=None):
     return beanstalk
 
 
-def configure_log_handler(loglevel, output):
+def configure_log_handler(application_name, loglevel, output):
     if isinstance(loglevel, (str, unicode)):
         loglevel = getattr(logbook, loglevel.upper())
 
@@ -32,7 +32,8 @@ def configure_log_handler(loglevel, output):
 
     if output == 'syslog':
         log_handler = logbook.SyslogHandler(
-            application_name='politwoops-worker',
+            application_name=application_name,
+            facility='user',
             bubble=False,
             level=loglevel)
     elif output == '-' or not output:

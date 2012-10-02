@@ -35,9 +35,10 @@ import politwoops
 
 from stathat import StatHat
 
-log = logbook.Logger(os.path.basename(__file__)
-                     if __name__ == "__main__"
-                     else __name__)
+_script_ = (os.path.basename(__file__)
+            if __name__ == "__main__"
+            else __name__)
+log = logbook.Logger(_script_)
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -243,7 +244,7 @@ class DeletedTweetsWorker:
 def main(args):
     signal.signal(signal.SIGHUP, politwoops.utils.restart_process)
 
-    log_handler = politwoops.utils.configure_log_handler(args.loglevel, args.output)
+    log_handler = politwoops.utils.configure_log_handler(_script_, args.loglevel, args.output)
     with logbook.NullHandler():
         with log_handler.applicationbound():
             politwoops.utils.start_heartbeat_thread()
