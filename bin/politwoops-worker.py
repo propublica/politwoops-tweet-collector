@@ -258,7 +258,12 @@ def main(args):
                 if args.restart:
                     return politwoops.utils.run_with_restart(app.run)
                 else:
-                    return app.run()
+                    try:
+                        return app.run()
+                    except Exception as e:
+                        logbook.error("Unhandled exception of type {exctype}: {exception}",
+                                      exctype=type(e),
+                                      exception=str(e))
             except KeyboardInterrupt:
                 log.notice("Killed by CTRL-C")
 
