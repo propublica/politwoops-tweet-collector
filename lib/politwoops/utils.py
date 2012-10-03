@@ -110,7 +110,6 @@ def start_watchdog_thread(heart):
     def _watchdog():
         while True:
             heart.sleep()
-            now = datetime.datetime.now()
             try:
                 stat = os.stat(heart.filepath)
                 mtime = datetime.datetime.fromtimestamp(stat.st_mtime)
@@ -122,6 +121,7 @@ def start_watchdog_thread(heart):
                 else:
                     raise
 
+            now = datetime.datetime.now()
             if mtime >= now:
                 logbook.warning("Heartbeat file mtime is in the future, restarting via SIGHUP.")
                 os.kill(heart.pid, signal.SIGHUP)
