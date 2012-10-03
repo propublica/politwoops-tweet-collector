@@ -45,8 +45,9 @@ class Usage(Exception):
         self.msg = msg
 
 
-class DeletedTweetsWorker:
-    def __init__(self, images):
+class DeletedTweetsWorker(object):
+    def __init__(self, heart, images):
+        self.heart = heart
         self.images = images
         self.get_config()
     
@@ -100,9 +101,12 @@ class DeletedTweetsWorker:
         self.init_beanstalk()
         self.users, self.politicians = self.get_users()
         self.stathat = self.get_stathat()
+
         while True:
             time.sleep(0.2)
-            job = self.beanstalk.reserve(timeout=0)
+            self.heart.beat()
+            reserve_timeout = max(self.heart.interval.total_seconds() * 0.1, 2)
+            job = self.beanstalk.reserve(timeout=reserve_timeout)
             if job:
                 self.handle_tweet(job.body)
                 job.delete()
@@ -247,23 +251,27 @@ def main(args):
     log_handler = politwoops.utils.configure_log_handler(_script_, args.loglevel, args.output)
     with logbook.NullHandler():
         with log_handler.applicationbound():
-            politwoops.utils.start_heartbeat_thread()
             try:
                 log.info("Starting Politwoops worker...")
                 log.notice("Log level {0}".format(log_handler.level_name))
                 if args.images:
                     log.notice("Screenshot support enabled.")
 
-                app = DeletedTweetsWorker(args.images)
-                if args.restart:
-                    return politwoops.utils.run_with_restart(app.run)
-                else:
-                    try:
-                        return app.run()
-                    except Exception as e:
-                        logbook.error("Unhandled exception of type {exctype}: {exception}",
-                                      exctype=type(e),
-                                      exception=str(e))
+                with politwoops.utils.Heart() as heart:
+                    politwoops.utils.start_watchdog_thread(heart)
+                    app = DeletedTweetsWorker(heart, args.images)
+                    if args.restart:
+                        return politwoops.utils.run_with_restart(app.run)
+                    else:
+                        try:
+                            return app.run()
+                        except Exception as e:
+                            logbook.error("Unhandled exception of type {exctype}: {exception}",
+                                          exctype=type(e),
+                                          exception=str(e))
+                            if not args.restart:
+                                raise
+
             except KeyboardInterrupt:
                 log.notice("Killed by CTRL-C")
 

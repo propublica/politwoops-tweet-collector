@@ -6,6 +6,7 @@ import threading
 import sys
 import os
 import signal
+from traceback import print_exception
 
 import logbook
 import beanstalkc
@@ -83,67 +84,116 @@ def restart_process(signum, frame):
     os.execl(sys.executable, sys.executable, *sys.argv)
 
 
-def start_heartbeat_thread():
+def start_heartbeat_thread(heart):
     """
-    Updates the access and modification timestamp of a
-    file every `interval` seconds. It does so from a
-    background thread, so it is only an indication that
-    the script is running -- not that it's getting tweets.
+    Triggers a regular heartbeat from a background thread
+    for scripts that making blocking calls and thus can't
+    heartbeat from their main loop.
     """
-
-    config = tweetsclient.Config().get()
-    try:
-        heartbeat_interval = float(config.get('tweets-client', 'heartbeat_interval'))
-    except:
-        logbook.warning("No heartbeat_interval configuration parameter, skipping heartbeat.")
-        return
-
-    try:
-        heartbeats_directory = config.get('tweets-client', 'heartbeats_directory')
-    except:
-        logbook.warning("No heartbeats_directory configuration parameter, skipping heartbeat.")
-        return
-
-    if not os.path.isdir(heartbeats_directory):
-        logbook.warning("The heartbeats_directory parameter ({0}) is not a directory.",
-                         heartbeats_directory)
-        return
-
-    scriptname = os.path.basename(sys.argv[0])
-    heartbeat_filepath = os.path.join(heartbeats_directory, scriptname)
-    start_time = datetime.datetime.now().isoformat()
-    pid = os.getpid()
-
-    with file(heartbeat_filepath, 'w') as fil:
-        fil.write(anyjson.serialize({
-            'pid': pid,
-            'started': start_time
-        }))
-
     def _heartbeat():
         while True:
-            time.sleep(heartbeat_interval)
-            now = datetime.datetime.now()
-            try:
-                stat = os.stat(heartbeat_filepath)
-                mtime = datetime.datetime.fromtimestamp(stat.st_mtime)
-            except OSError as e:
-                if e.errno == 2: # No such file or directory
-                    logbook.warning("Heartbeat file disappeared, restarting via SIGHUP.")
-                    os.kill(pid, signal.SIGHUP)
-                    return
-                else:
-                    raise
-
-            if mtime >= now:
-                logbook.warning("Heartbeat file mtime is in the future, restarting via SIGHUP.")
-                os.kill(pid, signal.SIGHUP)
-                return
-
-            os.utime(heartbeat_filepath, None)
+            heart.sleep()
+            heart.beat()
 
     heartbeat = threading.Thread(target=_heartbeat)
     # This causes the heartbeat thread to die with the main thread
     heartbeat.daemon = True 
     heartbeat.start()
 
+
+def start_watchdog_thread(heart):
+    """
+    Watch a heartbeat file and restart when the file mtime is either
+    too old or too far in the future.
+    """
+  
+    def _watchdog():
+        while True:
+            heart.sleep()
+            now = datetime.datetime.now()
+            try:
+                stat = os.stat(heart.filepath)
+                mtime = datetime.datetime.fromtimestamp(stat.st_mtime)
+            except OSError as e:
+                if e.errno == 2: # No such file or directory
+                    logbook.warning("Heartbeat file disappeared, restarting via SIGHUP.")
+                    os.kill(heart.pid, signal.SIGHUP)
+                    return
+                else:
+                    raise
+
+            if mtime >= now:
+                logbook.warning("Heartbeat file mtime is in the future, restarting via SIGHUP.")
+                os.kill(heart.pid, signal.SIGHUP)
+                return
+
+    watchdog = threading.Thread(target=_watchdog)
+    # This causes the watchdog thread to die with the main thread
+    watchdog.daemon = True 
+    watchdog.start()
+
+
+class Heart(object):
+    """
+    Updates the access and modification timestamp of a
+    file every `interval` seconds.
+    """
+    def __init__(self):
+        self.last_beat = datetime.datetime.now()
+
+        config = tweetsclient.Config().get()
+        try:
+            self.interval = datetime.timedelta(seconds=float(config.get('tweets-client', 'heartbeat_interval')))
+        except:
+            logbook.warning("No heartbeat_interval configuration parameter, skipping heartbeat.")
+            raise StopIteration
+
+        try:
+            directory = config.get('tweets-client', 'heartbeats_directory')
+        except:
+            logbook.warning("No heartbeats_directory configuration parameter, skipping heartbeat.")
+            raise StopIteration
+
+        if not os.path.isdir(directory):
+            logbook.warning("The heartbeats_directory parameter ({0}) is not a directory.",
+                             directory)
+            raise StopIteration
+
+        scriptname = os.path.basename(sys.argv[0])
+        self.filepath = os.path.join(directory, scriptname)
+
+        start_time = datetime.datetime.now().isoformat()
+        self.pid = os.getpid()
+        with file(self.filepath, 'w') as fil:
+            fil.write(anyjson.serialize({
+                'pid': self.pid,
+                'started': start_time
+            }))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if (exc_type, exc_value, traceback) == (None, None, None):
+            os.unlink(self.filepath)
+        else:
+            with file(self.filepath, 'w') as outf:
+                print_exception(exc_type, exc_value, traceback, 1000, outf)
+
+    def sleep(self):
+        while True:
+            now = datetime.datetime.now()
+            since = now - self.last_beat
+            if since >= self.interval:
+                return
+            else:
+                time.sleep(self.interval.total_seconds() * 0.10)
+
+    def beat(self):
+        now = datetime.datetime.now()
+        since = now - self.last_beat
+        if since >= self.interval:
+            os.utime(self.filepath, None)
+            self.last_beat = now
+
+    

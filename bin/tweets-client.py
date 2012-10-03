@@ -96,8 +96,13 @@ class TweetStreamClient:
         log.debug("Setting up stream ...")
         stream = self.get_stream()
         log.debug("Done setting up stream ...")
-        for tweet in stream:
-            self.handle_tweet(stream, tweet)
+        with politwoops.utils.Heart() as heart:
+            politwoops.utils.start_heartbeat_thread(heart)
+            politwoops.utils.start_watchdog_thread(heart)
+            for tweet in stream:
+                heart.beat()
+                self.handle_tweet(stream, tweet)
+
         self.beanstalk.disconnect()
         return 0
  
@@ -114,7 +119,6 @@ def main(args):
     log_handler = politwoops.utils.configure_log_handler(_script_, args.loglevel, args.output)
     with logbook.NullHandler():
         with log_handler.applicationbound():
-            politwoops.utils.start_heartbeat_thread()
             log.debug("Starting tweets-client.py")
             try:
                 app = TweetStreamClient()

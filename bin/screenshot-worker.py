@@ -135,6 +135,12 @@ def reduce_url_list(urls):
             except requests.exceptions.SSLError as e:
                 log.warning("Unable to make a HEAD request for {url} because: {e}",
                             url=url, e=e)
+                response = requests.get(url, allow_redirects=True)
+                log.info("GET {status_code} {url} {bytes}",
+                         status_code=response.status_code,
+                         url=url,
+                         bytes=len(response.content) if response.content else '')
+
     return unique_urls
 
 
@@ -152,8 +158,9 @@ def database_cursor(**connect_params):
 
 
 class TweetEntityWorker(object):
-    def __init__(self):
+    def __init__(self, heart):
         super(TweetEntityWorker, self).__init__()
+        self.heart = heart
         self.config = tweetsclient.Config().get()
         self.db_connect_params = {
             'host': self.config.get('database', 'host'),
@@ -178,7 +185,9 @@ class TweetEntityWorker(object):
 
         while True:
             time.sleep(0.2)
-            job = self.beanstalk.reserve(timeout=0)
+            self.heart.beat()
+            reserve_timeout = max(self.heart.interval.total_seconds() * 0.1, 2)
+            job = self.beanstalk.reserve(timeout=reserve_timeout)
             if job:
                 try:
                     tweet = anyjson.deserialize(job.body)
@@ -305,16 +314,17 @@ def main(args):
     log_handler = politwoops.utils.configure_log_handler(_script_, args.loglevel, args.output)
     with logbook.NullHandler():
         with log_handler.applicationbound():
-            politwoops.utils.start_heartbeat_thread()
             try:
                 log.notice("Log level {0}".format(log_handler.level_name))
                 ensure_phantomjs_is_runnable()
 
-                worker = TweetEntityWorker()
-                if args.restart:
-                    politwoops.utils.run_with_restart(worker.run)
-                else:
-                    worker.run()
+                with politwoops.utils.Heart() as heart:
+                    politwoops.utils.start_watchdog_thread(heart)
+                    worker = TweetEntityWorker(heart)
+                    if args.restart:
+                        politwoops.utils.run_with_restart(worker.run)
+                    else:
+                        worker.run()
             except KeyboardInterrupt:
                 log.notice("Killed by CTRL-C")
 
