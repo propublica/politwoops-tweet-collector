@@ -16,6 +16,7 @@ import subprocess
 import threading
 import argparse
 import signal
+import contextlib
 from tempfile import NamedTemporaryFile
 
 import anyjson
@@ -124,19 +125,45 @@ def reduce_url_list(urls):
     for url in urls:
         if url not in unique_urls:
             response = requests.head(url, allow_redirects=True)
-            log.info("HEAD {status_code} {url} {bytes}",
-                     status_code=response.status_code,
-                     url=url,
-                     bytes=len(response.content) if response.content else '')
-            if response.url not in unique_urls:
-                unique_urls.append(response.url)
+            try:
+                log.info("HEAD {status_code} {url} {bytes}",
+                         status_code=response.status_code,
+                         url=url,
+                         bytes=len(response.content) if response.content else '')
+                if response.url not in unique_urls:
+                    unique_urls.append(response.url)
+            except requests.exceptions.SSLError as e:
+                log.warning("Unable to make a HEAD request for {url} because: {e}",
+                            url=url, e=e)
     return unique_urls
+
+
+@contextlib.contextmanager
+def database_cursor(**connect_params):
+    database = MySQLdb.connect(**connect_params)
+    log.debug("Connected to database.")
+    database.autocommit(True) # needed if you're using InnoDB
+    cursor = database.cursor()
+    cursor.execute('SET NAMES UTF8')
+    yield cursor
+    cursor.close()
+    database.close()
+    log.debug("Disconnected from database.")
 
 
 class TweetEntityWorker(object):
     def __init__(self):
         super(TweetEntityWorker, self).__init__()
         self.config = tweetsclient.Config().get()
+        self.db_connect_params = {
+            'host': self.config.get('database', 'host'),
+            'port': int(self.config.get('database', 'port')),
+            'db': self.config.get('database', 'database'),
+            'user': self.config.get('database', 'username'),
+            'passwd': self.config.get('database', 'password'),
+            'charset': "utf8",
+            'use_unicode': True
+        }
 
     def run(self):
         mimetypes.init()
@@ -148,18 +175,6 @@ class TweetEntityWorker(object):
             watch=screenshot_tube,
             use=None)
         log.debug("Connected to queue.")
-        self.database = MySQLdb.connect(
-            host=self.config.get('database', 'host'),
-            port=int(self.config.get('database', 'port')),
-            db=self.config.get('database', 'database'),
-            user=self.config.get('database', 'username'),
-            passwd=self.config.get('database', 'password'),
-            charset="utf8",
-            use_unicode=True
-        )
-        log.debug("Connected to database.")
-        self.database.autocommit(True) # needed if you're using InnoDB
-        self.database.cursor().execute('SET NAMES UTF8')
 
         while True:
             time.sleep(0.2)
@@ -172,7 +187,7 @@ class TweetEntityWorker(object):
                 except Exception as e:
                     log.error("Exception caught, burying screenshot job: {0}", e)
                     job.bury()
-
+    
     def process_entities(self, tweet):
         entities = []
         if tweet['entities'].has_key('urls'):
@@ -215,10 +230,10 @@ class TweetEntityWorker(object):
                 break
 
     def record_tweet_image(self, tweet, url):
-        cursor = self.database.cursor()
-        cursor.execute("""INSERT INTO `tweet_images` (`tweet_id`, `url`, `created_at`, `updated_at`) VALUES(%s, %s, NOW(), NOW())""", (tweet['id'], url))
-        log.info("Inserted image into database for tweet {tweet}: {url}",
-                  tweet=tweet.get('id'), url=url)
+        with database_cursor(**self.db_connect_params) as cursor:
+            cursor.execute("""INSERT INTO `tweet_images` (`tweet_id`, `url`, `created_at`, `updated_at`) VALUES(%s, %s, NOW(), NOW())""", (tweet['id'], url))
+            log.info("Inserted image into database for tweet {tweet}: {url}",
+                      tweet=tweet.get('id'), url=url)
     
 
     def screenshot_entity_url(self, tweet, entity_index, url):
