@@ -195,5 +195,8 @@ class Heart(object):
         if since >= self.interval:
             os.utime(self.filepath, None)
             self.last_beat = now
+            return True
+        else:
+            return False
 
     

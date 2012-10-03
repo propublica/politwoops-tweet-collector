@@ -78,6 +78,13 @@ class DeletedTweetsWorker(object):
                                                     watch=tweets_tube,
                                                     use=screenshot_tube)
 
+    def _database_keepalive(self):
+        cur = self.database.cursor()
+        cur.execute("""SELECT id FROM tweets LIMIT 1""")
+        cur.fetchone()
+        cur.close()
+        log.info("Executed database connection keepalive query.")
+
     def get_config(self):
         log.debug("Reading config ...")
         self.config = tweetsclient.Config().get()
@@ -104,7 +111,8 @@ class DeletedTweetsWorker(object):
 
         while True:
             time.sleep(0.2)
-            self.heart.beat()
+            if self.heart.beat():
+                self._database_keepalive()
             reserve_timeout = max(self.heart.interval.total_seconds() * 0.1, 2)
             job = self.beanstalk.reserve(timeout=reserve_timeout)
             if job:
