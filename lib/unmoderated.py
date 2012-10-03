@@ -12,7 +12,7 @@ smtpconfig.read('conf/tweets-client.ini')
 smtp = smtplib.SMTP(smtpconfig.get('moderation-alerts', 'mail_host'), smtpconfig.get('moderation-alerts', 'mail_port'))
 smtp.login(smtpconfig.get('moderation-alerts', 'mail_username'), smtpconfig.get('moderation-alerts', 'mail_password'))
 
-recipient = smtpconfig.get('moderation-alerts', 'recipient')
+recipient = smtpconfig.get('moderation-alerts', 'unmoderated_recipient')
 sender = smtpconfig.get('moderation-alerts', 'sender')
 max_tweets = smtpconfig.getint('moderation-alerts', 'max_tweets')
 
@@ -27,7 +27,7 @@ conn = MySQLdb.connect(
             use_unicode=True
         )
 cur = conn.cursor()
-cur.execute("""SELECT * FROM `tweets` WHERE reviewed=0 """)
+cur.execute("""SELECT * FROM `deleted_tweets` WHERE reviewed=0 """)
 tweets = cur.fetchall()
 unmoderated = len(tweets)
 

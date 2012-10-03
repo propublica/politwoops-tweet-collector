@@ -224,7 +224,7 @@ class DeletedTweetsWorker(object):
             port = self.config.get('moderation-alerts', 'mail_port')
             user = self.config.get('moderation-alerts', 'mail_username')
             password = self.config.get('moderation-alerts', 'mail_password')
-            recipient = self.config.get('moderation-alerts', 'recipient')
+            recipient = self.config.get('moderation-alerts', 'twoops_recipient')
             sender = self.config.get('moderation-alerts', 'sender')
 
             if not text:
