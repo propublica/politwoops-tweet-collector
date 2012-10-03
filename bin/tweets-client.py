@@ -111,6 +111,11 @@ class TweetStreamClient:
         self.restartCounter = 0
         # add the tweet to the queue
         log.info(u"Queued tweet {0}", tweet)
+        if tweet.has_key('user'):
+            log.notice(u"Queued tweet for user {0}/{1}".format(tweet.get('user').get('screen_name', ''), tweet.get('user').get('id_str')))
+        else:
+            log.notice(u"Queued tweet: {0}".format(tweet))
+
         self.beanstalk.put(anyjson.serialize(tweet))
 
 def main(args):

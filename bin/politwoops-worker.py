@@ -230,6 +230,7 @@ class DeletedTweetsWorker(object):
             if not text:
                 #in case text is None from a deleted but not originally captured deleted tweet
                 text = ''
+            text += "\n\nModerate this deletion here: http://politwoops.sunlightfoundation.com/admin/review\n\nEmail the moderation group if you have questions or would like a second opinion at politwoops-moderation@sunlightfoundation.com"
 
             nowtime = datetime.now()
             diff = nowtime - created 
