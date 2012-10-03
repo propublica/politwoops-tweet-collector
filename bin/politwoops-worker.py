@@ -16,6 +16,7 @@ import MySQLdb
 import anyjson
 import smtplib
 import signal
+import pytz
 from email.mime.text import MIMEText
 from datetime import datetime
 
@@ -244,6 +245,9 @@ class DeletedTweetsWorker(object):
                     diffstr += "%s minutes" % (diff.seconds / 60)
                 else:
                     diffstr += "%s seconds" % diff.seconds
+
+            nowtime = pytz.timezone('UTC').localize(nowtime)
+            nowtime = nowtime.astimezone(pytz.timezone('US/Eastern'))
 
             smtp = smtplib.SMTP(host, port)
             smtp.login(user, password)
