@@ -109,7 +109,7 @@ def start_watchdog_thread(heart):
   
     def _watchdog():
         while True:
-            heart.sleep()
+            time.sleep(heart.interval.total_seconds() * 0.10)
             try:
                 stat = os.stat(heart.filepath)
                 mtime = datetime.datetime.fromtimestamp(stat.st_mtime)
