@@ -291,7 +291,7 @@ class TweetEntityWorker(object):
         secret_access_key = self.config.get('aws', 'secret_access_key')
         url_prefix = self.config.get('aws', 'url_prefix')
 
-        dest_path = urlparse.urljoin(url_prefix, dest_filename)
+        dest_path = os.path.join(url_prefix, dest_filename)
         url = 'http://s3.amazonaws.com/%s/%s' % (bucket_name, dest_path)
 
         conn = S3Connection(access_key, secret_access_key)
