@@ -174,7 +174,7 @@ class Heart(object):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if (exc_type, exc_value, traceback) == (None, None, None):
+        if ((exc_type, exc_value, traceback) == (None, None, None)) or (exc_type is KeyboardInterrupt):
             os.unlink(self.filepath)
         else:
             with file(self.filepath, 'w') as outf:
