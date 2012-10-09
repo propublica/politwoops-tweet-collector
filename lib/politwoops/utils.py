@@ -109,7 +109,7 @@ def start_watchdog_thread(heart):
   
     def _watchdog():
         while True:
-            heart.sleep()
+            time.sleep(heart.interval.total_seconds() * 0.10)
             try:
                 stat = os.stat(heart.filepath)
                 mtime = datetime.datetime.fromtimestamp(stat.st_mtime)
@@ -174,7 +174,7 @@ class Heart(object):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if (exc_type, exc_value, traceback) == (None, None, None):
+        if ((exc_type, exc_value, traceback) == (None, None, None)) or (exc_type is KeyboardInterrupt):
             os.unlink(self.filepath)
         else:
             with file(self.filepath, 'w') as outf:

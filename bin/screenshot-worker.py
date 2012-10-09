@@ -194,7 +194,8 @@ class TweetEntityWorker(object):
                     self.process_entities(tweet)
                     job.delete()
                 except Exception as e:
-                    log.error("Exception caught, burying screenshot job: {0}", e)
+                    log.error("Exception caught, burying screenshot job for tweet {tweet}: {e}",
+                              tweet=tweet.get('id'), e=e)
                     job.bury()
     
     def process_entities(self, tweet):
@@ -229,7 +230,9 @@ class TweetEntityWorker(object):
                           url=url,
                           bytes=len(response.content) if response.content else '')
                 if response.status_code != httplib.OK:
-                    log.warn("Unable to retrieve head for entity URL {0}", url)
+                    log.warn("Unable to retrieve head for tweet {tweet} entity URL {url}",
+                             url=url,
+                             tweet=tweet.get('id'))
                     continue
                 
                 if response.headers.get('content-type', '').startswith('image/'):
@@ -291,7 +294,7 @@ class TweetEntityWorker(object):
         secret_access_key = self.config.get('aws', 'secret_access_key')
         url_prefix = self.config.get('aws', 'url_prefix')
 
-        dest_path = urlparse.urljoin(url_prefix, dest_filename)
+        dest_path = os.path.join(url_prefix, dest_filename)
         url = 'http://s3.amazonaws.com/%s/%s' % (bucket_name, dest_path)
 
         conn = S3Connection(access_key, secret_access_key)
