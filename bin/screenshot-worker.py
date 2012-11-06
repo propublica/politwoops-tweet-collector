@@ -124,7 +124,7 @@ def reduce_url_list(urls):
     unique_urls = []
     for url in urls:
         if url not in unique_urls:
-            response = requests.head(url, allow_redirects=True, max_redirects=30, timeout=15)
+            response = requests.head(url, allow_redirects=True, timeout=15)
             try:
                 log.info("HEAD {status_code} {url} {bytes}",
                          status_code=response.status_code,
@@ -135,7 +135,7 @@ def reduce_url_list(urls):
             except requests.exceptions.SSLError as e:
                 log.warning("Unable to make a HEAD request for {url} because: {e}",
                             url=url, e=e)
-                response = requests.get(url, allow_redirects=True, max_redirects=30, timeout=15)
+                response = requests.get(url, allow_redirects=True, timeout=15)
                 log.info("GET {status_code} {url} {bytes}",
                          status_code=response.status_code,
                          url=url,
@@ -224,7 +224,7 @@ class TweetEntityWorker(object):
                       **log_context)
 
             for url in urls:
-                response = requests.head(url, allow_redirects=True, max_redirects=30, timeout=15)
+                response = requests.head(url, allow_redirects=True, timeout=15)
                 log.info("HEAD {status_code} {url} {bytes}",
                           status_code=response.status_code,
                           url=url,
@@ -261,7 +261,7 @@ class TweetEntityWorker(object):
                 self.record_tweet_image(tweet, new_url)
 
     def mirror_entity_image(self, tweet, entity_index, url):
-        response = requests.get(url, allow_redirects=True, max_redirects=30, timeout=15)
+        response = requests.get(url, allow_redirects=True, timeout=15)
         if response.status_code != httplib.OK:
             log.warn("Failed to download image {0}", url)
             return
