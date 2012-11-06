@@ -194,8 +194,8 @@ class TweetEntityWorker(object):
                     self.process_entities(tweet)
                     job.delete()
                 except Exception as e:
-                    log.error("Exception caught, burying screenshot job for tweet {tweet}: {e}",
-                              tweet=tweet.get('id'), e=e)
+                    log.error("Exception caught, burying screenshot job for tweet {tweet}: {e_type} {e}",
+                              tweet=tweet.get('id'), e=e, e_type=type(e))
                     job.bury()
     
     def process_entities(self, tweet):
