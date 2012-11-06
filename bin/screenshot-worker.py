@@ -124,7 +124,7 @@ def reduce_url_list(urls):
     unique_urls = []
     for url in urls:
         if url not in unique_urls:
-            response = requests.head(url, allow_redirects=True)
+            response = requests.head(url, allow_redirects=True, max_redirects=30)
             try:
                 log.info("HEAD {status_code} {url} {bytes}",
                          status_code=response.status_code,
@@ -224,7 +224,7 @@ class TweetEntityWorker(object):
                       **log_context)
 
             for url in urls:
-                response = requests.head(url, allow_redirects=True)
+                response = requests.head(url, allow_redirects=True, max_redirects=30)
                 log.info("HEAD {status_code} {url} {bytes}",
                           status_code=response.status_code,
                           url=url,
