@@ -224,7 +224,7 @@ class TweetEntityWorker(object):
                       **log_context)
 
             for url in urls:
-                response = requests.head(url)
+                response = requests.head(url, allow_redirects=True)
                 log.info("HEAD {status_code} {url} {bytes}",
                           status_code=response.status_code,
                           url=url,
@@ -233,7 +233,6 @@ class TweetEntityWorker(object):
                     log.warn("Unable to retrieve head for tweet {tweet} entity URL {url}",
                              url=url,
                              tweet=tweet.get('id'))
-                    continue
                 
                 if response.headers.get('content-type', '').startswith('image/'):
                     self.mirror_entity_image(tweet, entity_index, url)
