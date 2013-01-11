@@ -48,7 +48,6 @@ class DataRecord(object):
 
     def __setattr__(self, attr, value):
         raise AttributeError("All attributes of DataRecord objects are read-only")
-            
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -61,13 +60,23 @@ class TweetListener(tweepy.streaming.StreamListener):
 
     def on_data(self, data):
         try:
-            self.queue.add(data)
+            tweet = anyjson.deserialize(data)
+            self.queue.put(anyjson.serialize(tweet))
+            if tweet.has_key('user'):
+                log.notice(u"Queued tweet for user {0}/{1}".format(tweet.get('user').get('screen_name', ''), tweet.get('user').get('id_str')))
+            else:
+                log.notice(u"Queued tweet: {0}".format(tweet))
+
         except Exception as e:
             log.error(u"TweetListener.on_data() caught exception: {0}".format(unicode(e)))
-            raise
+            import ipdb; ipdb.set_trace()
+            return False  # Closes connection, stops streaming
 
-    def on_error(self, status):
-        log.error(u"TweetListener.on_data() caught exception: {0}".format(unicode(status)))
+    def on_timeout(self):
+        log.error(u"TweetListener connection timed out.")
+
+    def on_error(self, status_code):
+        log.error(u"TweetListener got bad status code: {0}".format(status_code))
 
 class TweetStreamClient(object):
     def __init__(self):
@@ -115,15 +124,13 @@ class TweetStreamClient(object):
                                                     use=tweets_tube)
     
     def stream_forever(self):
-        queue_module = self.get_config_default('tweets-client', 'track-module', 'tweetsclient.config_track')
-        queue_class = self.get_config_default('tweets-client', 'track-class', 'ConfigTrackPlugin')
+        track_module = self.get_config_default('tweets-client', 'track-module', 'tweetsclient.config_track')
+        track_class = self.get_config_default('tweets-client', 'track-class', 'ConfigTrackPlugin')
         log.debug("Loading track plugin: {module} - {klass}",
-                  module=queue_module, klass=queue_class)
+                  module=track_module, klass=track_class)
 
-        pluginClass = self.load_plugin(queue_module, queue_class)
+        pluginClass = self.load_plugin(track_module, track_class)
         self.track = pluginClass()
-        #self.track = tweetsclient.MySQLTrackPlugin({'verbose': self.verbose})
-        # self.track = tweetsclient.ConfigTrackPlugin({'verbose': self.verbose})
         stream_type = self.track.get_type()
         log.debug("Initializing a {0} stream of tweets.", stream_type)
         track_items = self.track.get_items()
@@ -131,7 +138,7 @@ class TweetStreamClient(object):
 
         stream = None
         if stream_type == 'users':
-            tweet_listener = TweetListener()
+            tweet_listener = TweetListener(self.beanstalk)
             stream = tweepy.Stream(self.twitter_auth, tweet_listener)
             stream.filter(follow=track_items)
         elif stream_type == 'words':
@@ -148,18 +155,6 @@ class TweetStreamClient(object):
 
         self.beanstalk.disconnect()
         return 0
- 
-    def handle_tweet(self, stream, tweet):
-        # reset the restart counter once a tweet has come in
-        self.restartCounter = 0
-        # add the tweet to the queue
-        log.info(u"Queued tweet {0}", tweet)
-        if tweet.has_key('user'):
-            log.notice(u"Queued tweet for user {0}/{1}".format(tweet.get('user').get('screen_name', ''), tweet.get('user').get('id_str')))
-        else:
-            log.notice(u"Queued tweet: {0}".format(tweet))
-
-        self.beanstalk.put(anyjson.serialize(tweet))
 
 def main(args):
     signal.signal(signal.SIGHUP, politwoops.utils.restart_process)
