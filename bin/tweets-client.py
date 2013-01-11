@@ -24,7 +24,7 @@ import anyjson
 import logbook
 
 # this is for consuming the streaming API
-import tweetstream
+import tweepy
 import tweetsclient
 import politwoops
 
@@ -34,15 +34,61 @@ _script_ = (os.path.basename(__file__)
             else __name__)
 log = logbook.Logger(_script_)
 
+class DataRecord(object):
+    def __init__(self, *args, **kwargs):
+        object.__setattr__(self, '_dict', {})
+        self._dict.update(((arg, None) for arg in args))
+        self._dict.update(kwargs)
+
+    def __getattr__(self, attr):
+        if attr not in self._dict:
+            raise AttributeError("{cls!r} has no attribute {attr!r}".format(cls=self.__class__.__name__,
+                                                                        attr=attr))
+        return self._dict[attr]
+
+    def __setattr__(self, attr, value):
+        raise AttributeError("All attributes of DataRecord objects are read-only")
+            
+
 class Usage(Exception):
     def __init__(self, msg):
         self.msg = msg
 
-class TweetStreamClient:
+class TweetListener(tweepy.streaming.StreamListener):
+    def __init__(self, queue, *args, **kwargs):
+        super(TweetListener, self).__init__(*args, **kwargs)
+        self.queue = queue
+
+    def on_data(self, data):
+        try:
+            self.queue.add(data)
+        except Exception as e:
+            log.error(u"TweetListener.on_data() caught exception: {0}".format(unicode(e)))
+            raise
+
+    def on_error(self, status):
+        log.error(u"TweetListener.on_data() caught exception: {0}".format(unicode(status)))
+
+class TweetStreamClient(object):
     def __init__(self):
         self.config = tweetsclient.Config().get()
-        self.user = self.config.get('tweets-client', 'username')
-        self.passwd = self.config.get('tweets-client', 'password')
+        consumer_key = self.config.get('tweets-client', 'consumer_key')
+        consumer_secret = self.config.get('tweets-client', 'consumer_secret')
+        access_token = self.config.get('tweets-client', 'access_token')
+        access_token_secret = self.config.get('tweets-client', 'access_token_secret')
+        log.debug("Consumer credentials: {key}, {secret}",
+                  key=consumer_key,
+                  secret=consumer_secret)
+        log.debug("Access credentials: {token}, {secret}",
+                  token=access_token,
+                  secret=access_token_secret)
+        self.twitter_auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+        self.twitter_auth.set_access_token(access_token, access_token_secret)
+        try:
+            username = self.twitter_auth.get_username()
+            log.notice("Authenticated as {user}".format(user=username))
+        except tweepy.error.TweepError as e:
+            log.error(unicode(e))
 
     def get_config_default(self, section, key, default = None):
         try:
@@ -68,7 +114,7 @@ class TweetStreamClient:
                                                     watch=None,
                                                     use=tweets_tube)
     
-    def get_stream(self):
+    def stream_forever(self):
         queue_module = self.get_config_default('tweets-client', 'track-module', 'tweetsclient.config_track')
         queue_class = self.get_config_default('tweets-client', 'track-class', 'ConfigTrackPlugin')
         log.debug("Loading track plugin: {module} - {klass}",
@@ -82,26 +128,23 @@ class TweetStreamClient:
         log.debug("Initializing a {0} stream of tweets.", stream_type)
         track_items = self.track.get_items()
         log.debug(str(track_items))
+
         stream = None
         if stream_type == 'users':
-            stream = tweetstream.FilterStream(self.user, self.passwd, track_items)
+            tweet_listener = TweetListener()
+            stream = tweepy.Stream(self.twitter_auth, tweet_listener)
+            stream.filter(follow=track_items)
         elif stream_type == 'words':
-            stream = tweetstream.TrackStream(self.user, self.passwd, track_items)
+            raise Exception('The words stream type is no longer supported.')
         else:
-            stream = tweetstream.TweetStream(self.user, self.passwd)            
-        return stream
+            raise Exception('Unrecognized stream type: {0}'.format(stream_type))
     
     def run(self):
         self.init_beanstalk()
-        log.debug("Setting up stream ...")
-        stream = self.get_stream()
-        log.debug("Done setting up stream ...")
         with politwoops.utils.Heart() as heart:
             politwoops.utils.start_heartbeat_thread(heart)
             politwoops.utils.start_watchdog_thread(heart)
-            for tweet in stream:
-                heart.beat()
-                self.handle_tweet(stream, tweet)
+            self.stream_forever()
 
         self.beanstalk.disconnect()
         return 0
@@ -127,6 +170,8 @@ def main(args):
             log.debug("Starting tweets-client.py")
             try:
                 app = TweetStreamClient()
+                if args.authtest:
+                    return
                 if args.restart:
                     return politwoops.utils.run_with_restart(app.run)
                 else:
@@ -146,5 +191,7 @@ if __name__ == "__main__":
                              help='Destination for log output (-, syslog, or filename)')
     args_parser.add_argument('--restart', default=False, action='store_true',
                              help='Restart when an error cannot be handled.')
+    args_parser.add_argument('--authtest', default=False, action='store_true',
+                             help='Authenticate against Twitter and exit.')
     args = args_parser.parse_args()
     sys.exit(main(args))
