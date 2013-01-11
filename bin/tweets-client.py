@@ -53,6 +53,10 @@ class Usage(Exception):
     def __init__(self, msg):
         self.msg = msg
 
+def dict_mget(thedict, keylist, default=None):
+    result = reduce(lambda d, k: None if d is None else d.get(k), keylist, thedict)
+    return result if result is not None else default
+
 class TweetListener(tweepy.streaming.StreamListener):
     def __init__(self, queue, *args, **kwargs):
         super(TweetListener, self).__init__(*args, **kwargs)
@@ -62,14 +66,19 @@ class TweetListener(tweepy.streaming.StreamListener):
         try:
             tweet = anyjson.deserialize(data)
             self.queue.put(anyjson.serialize(tweet))
-            if tweet.has_key('user'):
-                log.notice(u"Queued tweet for user {0}/{1}".format(tweet.get('user').get('screen_name', ''), tweet.get('user').get('id_str')))
+            if tweet.has_key('delete'):
+                status = dict_mget(tweet, ['delete', 'status'])
+                if status is not None:
+                    log.notice(u"Queued delete notification for user {0} for tweet {1}".format(status.get('user_id_str'), status.get('id_str')))
+
+            elif tweet.has_key('user'):
+                log.notice(u"Queued tweet for user {0}/{1}".format(dict_mget(tweet, ['user', 'screen_name']), dict_mget(tweet, ['user', 'id_str'])))
+
             else:
                 log.notice(u"Queued tweet: {0}".format(tweet))
 
         except Exception as e:
             log.error(u"TweetListener.on_data() caught exception: {0}".format(unicode(e)))
-            import ipdb; ipdb.set_trace()
             return False  # Closes connection, stops streaming
 
     def on_timeout(self):
