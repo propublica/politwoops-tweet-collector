@@ -220,7 +220,7 @@ class DeletedTweetsWorker(object):
     
     
     def send_alert(self, username, created, text):
-        if self.config.has_section('moderation-alerts'):
+        if username and self.config.has_section('moderation-alerts'):
             host = self.config.get('moderation-alerts', 'mail_host')
             port = self.config.get('moderation-alerts', 'mail_port')
             user = self.config.get('moderation-alerts', 'mail_username')
@@ -240,7 +240,9 @@ class DeletedTweetsWorker(object):
                 diffstr += '%s days' % diff.days
             else:
                 if diff.seconds > 86400:
-                    diffstr += "%s hours" % (diff.seconds / 3600 )
+                    diffstr += "%s days" % (diff.seconds / 86400 )
+                elif diff.seconds > 3600:
+                    diffstr += "%s hours" % (diff.seconds / 3600)
                 elif diff.seconds > 60:
                     diffstr += "%s minutes" % (diff.seconds / 60)
                 else:
