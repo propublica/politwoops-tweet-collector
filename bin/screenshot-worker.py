@@ -303,7 +303,8 @@ class TweetEntityWorker(object):
         try:
             key.set_contents_from_filename(tmp_path,
                                            policy='public-read',
-                                           headers={'Content-Type': content_type})
+                                           headers={'Content-Type': content_type,
+                                                    'Max-Age': 604800 })
             log.notice("Uploaded image {0} to {1}", tmp_path, url)
             return url
         except IOError as e:
