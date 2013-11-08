@@ -188,13 +188,35 @@ class DeletedTweetsWorker(object):
         # total_count = cursor.fetchone()[0]
         # self._debug("Total count in table: %s" % total_count)
 
+        retweeted_id = None
+        retweeted_content = None
+        retweeted_user_name = None
+        if tweet.has_key('retweeted_status'):
+            retweeted_id = tweet['retweeted_status']['id']
+            retweeted_content = tweet['retweeted_status']['text']
+            retweeted_user_name = tweet['retweeted_status']['user']['screen_name']
 
         if num_previous > 0:
-            cursor.execute("""UPDATE `tweets` SET `user_name` = %s, `politician_id` = %s, `content` = %s, `tweet`=%s, `modified`= NOW() WHERE id = %s""", (tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], anyjson.serialize(tweet), tweet['id'],))
+            cursor.execute("""UPDATE `tweets` SET `user_name` = %s, `politician_id` = %s, `content` = %s, `tweet`=%s, `retweeted_id`=%s, `retweeted_content`=%s, `retweeted_user_name`=%s `modified`= NOW() WHERE id = %s""",
+                           (tweet['user']['screen_name'],
+                            self.users[tweet['user']['id']],
+                            tweet['text'],
+                            anyjson.serialize(tweet),
+                            retweeted_id,
+                            retweeted_content,
+                            retweeted_user_name,
+                            tweet['id']))
             log.info("Updated tweet {0}", tweet.get('id'))
         else:
-            #cursor.execute("""DELETE FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
-            cursor.execute("""INSERT INTO `tweets` (`id`, `user_name`, `politician_id`, `content`, `created`, `modified`, `tweet`) VALUES(%s, %s, %s, %s, NOW(), NOW(), %s)""", (tweet['id'], tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], anyjson.serialize(tweet)))
+            cursor.execute("""INSERT INTO `tweets` (`id`, `user_name`, `politician_id`, `content`, `created`, `modified`, `tweet`, retweeted_id, retweeted_content, retweeted_user_name) VALUES(%s, %s, %s, %s, NOW(), NOW(), %s, %s, %s, %s)""",
+                           (tweet['id'],
+                            tweet['user']['screen_name'],
+                            self.users[tweet['user']['id']],
+                            tweet['text'],
+                            anyjson.serialize(tweet),
+                            retweeted_id,
+                            retweeted_content,
+                            retweeted_user_name))
             log.info("Inserted new tweet {0}", tweet.get('id'))
 
 
