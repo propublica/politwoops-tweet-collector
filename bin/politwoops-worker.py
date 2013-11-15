@@ -51,7 +51,7 @@ class DeletedTweetsWorker(object):
         self.heart = heart
         self.images = images
         self.get_config()
-    
+
     def init_database(self):
         log.debug("Making DB connection")
         self.database = MySQLdb.connect(
@@ -65,7 +65,7 @@ class DeletedTweetsWorker(object):
         )
         self.database.autocommit(True) # needed if you're using InnoDB
         self.database.cursor().execute('SET NAMES UTF8')
-    
+
     def init_beanstalk(self):
         tweets_tube = self.config.get('beanstalk', 'tweets_tube')
         screenshot_tube = self.config.get('beanstalk', 'screenshot_tube')
@@ -128,7 +128,7 @@ class DeletedTweetsWorker(object):
         else:
             log.debug('StatHat ingeration enabled ...')
             return StatHat()
-        
+
     def stathat_add_count(self, stat_name):
         if self.stathat is not None:
             try:
@@ -137,7 +137,7 @@ class DeletedTweetsWorker(object):
                 pass
             except urllib2.HTTPError, e:
                 pass
-    
+
     def handle_tweet(self, job_body):
         tweet = anyjson.deserialize(job_body)
         if tweet.has_key('delete'):
@@ -165,9 +165,9 @@ class DeletedTweetsWorker(object):
             cursor.execute("""REPLACE INTO `tweets` (`id`, `deleted`, `modified`, `created`) VALUES(%s, 1, NOW(), NOW())""", (tweet['delete']['status']['id']))
 
         cursor.execute("""SELECT * FROM `tweets` WHERE `id` = %s""", (tweet['delete']['status']['id'],))
-        ref_tweet = cursor.fetchone()  
+        ref_tweet = cursor.fetchone()
         self.send_alert(ref_tweet[1], ref_tweet[4], ref_tweet[2])
-    
+
     def handle_new(self, tweet):
         log.notice("New tweet {tweet} from user {user_id}/{screen_name}",
                   tweet=tweet.get('id'),
@@ -177,7 +177,7 @@ class DeletedTweetsWorker(object):
         self.handle_possible_rename(tweet)
         cursor = self.database.cursor()
         cursor.execute("""SELECT COUNT(*), `deleted` FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
-        
+
         info = cursor.fetchone()
         num_previous = info[0]
         if info[1] is not None:
@@ -188,27 +188,49 @@ class DeletedTweetsWorker(object):
         # total_count = cursor.fetchone()[0]
         # self._debug("Total count in table: %s" % total_count)
 
+        retweeted_id = None
+        retweeted_content = None
+        retweeted_user_name = None
+        if tweet.has_key('retweeted_status'):
+            retweeted_id = tweet['retweeted_status']['id']
+            retweeted_content = tweet['retweeted_status']['text']
+            retweeted_user_name = tweet['retweeted_status']['user']['screen_name']
 
         if num_previous > 0:
-            cursor.execute("""UPDATE `tweets` SET `user_name` = %s, `politician_id` = %s, `content` = %s, `tweet`=%s, `modified`= NOW() WHERE id = %s""", (tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], anyjson.serialize(tweet), tweet['id'],))
+            cursor.execute("""UPDATE `tweets` SET `user_name` = %s, `politician_id` = %s, `content` = %s, `tweet`=%s, `retweeted_id`=%s, `retweeted_content`=%s, `retweeted_user_name`=%s `modified`= NOW() WHERE id = %s""",
+                           (tweet['user']['screen_name'],
+                            self.users[tweet['user']['id']],
+                            tweet['text'],
+                            anyjson.serialize(tweet),
+                            retweeted_id,
+                            retweeted_content,
+                            retweeted_user_name,
+                            tweet['id']))
             log.info("Updated tweet {0}", tweet.get('id'))
         else:
-            #cursor.execute("""DELETE FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
-            cursor.execute("""INSERT INTO `tweets` (`id`, `user_name`, `politician_id`, `content`, `created`, `modified`, `tweet`) VALUES(%s, %s, %s, %s, NOW(), NOW(), %s)""", (tweet['id'], tweet['user']['screen_name'], self.users[tweet['user']['id']], tweet['text'], anyjson.serialize(tweet)))
+            cursor.execute("""INSERT INTO `tweets` (`id`, `user_name`, `politician_id`, `content`, `created`, `modified`, `tweet`, retweeted_id, retweeted_content, retweeted_user_name) VALUES(%s, %s, %s, %s, NOW(), NOW(), %s, %s, %s, %s)""",
+                           (tweet['id'],
+                            tweet['user']['screen_name'],
+                            self.users[tweet['user']['id']],
+                            tweet['text'],
+                            anyjson.serialize(tweet),
+                            retweeted_id,
+                            retweeted_content,
+                            retweeted_user_name))
             log.info("Inserted new tweet {0}", tweet.get('id'))
 
-            
+
         if was_deleted:
             log.warn("Tweet deleted {0} before it came!", tweet.get('id'))
             self.copy_tweet_to_deleted_table(tweet['id'])
-        
+
         self.stathat_add_count('tweets')
-    
+
     def copy_tweet_to_deleted_table(self, tweet_id):
         cursor = self.database.cursor()
         cursor.execute("""INSERT IGNORE INTO `deleted_tweets` SELECT * FROM `tweets` WHERE `id` = %s AND `content` IS NOT NULL""" % (tweet_id))
         self.stathat_add_count('deleted tweets')
-        
+
     def handle_possible_rename(self, tweet):
         tweet_user_name = tweet['user']['screen_name']
         tweet_user_id = tweet['user']['id']
@@ -217,8 +239,8 @@ class DeletedTweetsWorker(object):
             self.politicians[tweet_user_id] = tweet_user_name
             cursor= self.database.cursor()
             cursor.execute("""UPDATE `politicians` SET `user_name` = %s WHERE `id` = %s""", (tweet_user_name, self.users[tweet_user_id]))
-    
-    
+
+
     def send_alert(self, username, created, text):
         if username and self.config.has_section('moderation-alerts'):
             host = self.config.get('moderation-alerts', 'mail_host')
@@ -234,7 +256,7 @@ class DeletedTweetsWorker(object):
             text += "\n\nModerate this deletion here: http://politwoops.sunlightfoundation.com/admin/review\n\nEmail the moderation group if you have questions or would like a second opinion at politwoops-moderation@sunlightfoundation.com"
 
             nowtime = datetime.now()
-            diff = nowtime - created 
+            diff = nowtime - created
             diffstr = ''
             if diff.days != 0:
                 diffstr += '%s days' % diff.days
