@@ -197,7 +197,7 @@ class DeletedTweetsWorker(object):
             retweeted_user_name = tweet['retweeted_status']['user']['screen_name']
 
         if num_previous > 0:
-            cursor.execute("""UPDATE `tweets` SET `user_name` = %s, `politician_id` = %s, `content` = %s, `tweet`=%s, `retweeted_id`=%s, `retweeted_content`=%s, `retweeted_user_name`=%s `modified`= NOW() WHERE id = %s""",
+            cursor.execute("""UPDATE `tweets` SET `user_name` = %s, `politician_id` = %s, `content` = %s, `tweet`=%s, `retweeted_id`=%s, `retweeted_content`=%s, `retweeted_user_name`=%s, `modified`= NOW() WHERE id = %s""",
                            (tweet['user']['screen_name'],
                             self.users[tweet['user']['id']],
                             tweet['text'],
