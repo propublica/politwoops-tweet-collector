@@ -3,7 +3,7 @@ PyYAML==3.10
 anyjson==0.3.3
 beanstalkc==0.2.0
 boto==2.5.2
-tweepy=1.12
+tweepy==1.12
 wsgiref==0.1.2
 Logbook==0.3
 requests==0.14.0
