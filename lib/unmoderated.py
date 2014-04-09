@@ -3,9 +3,11 @@
 
 import MySQLdb
 import tweetsclient
-import smtplib 
+import smtplib
 from email.mime.text import MIMEText
 import ConfigParser
+import pytz
+import datetime
 
 smtpconfig = ConfigParser.ConfigParser()
 smtpconfig.read('conf/tweets-client.ini')
@@ -32,7 +34,11 @@ tweets = cur.fetchall()
 unmoderated = len(tweets)
 
 if unmoderated > max_tweets:
+    tz = pytz.timezone(unicode('US/Eastern'))
+    dtnow = datetime.datetime.now(tz)
+
     msg = MIMEText('', 'plain')
+    msg['Date'] = dtnow.strftime("%a, %d %b %Y %H:%M:%S %z")
     msg['Subject'] = 'Politwoops Administration Alert: %s Unmoderated Tweets!' % unmoderated
     msg['From'] = 'PolitwoopsAdmin@politwoops.sunlightfoundation.com'
     msg['To'] = recipient
