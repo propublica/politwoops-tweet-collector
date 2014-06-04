@@ -13,12 +13,21 @@ var RenderRetryDelayTimeout = 2 * 1000;
 var WindowWidth = 1280;
 var WindowHeight = 1024;
 
-
+var Debug = false;
 
 var page = new WebPage(),
-address, output, size;
+    address, output, size;
 
 var current_timeout = null;
+
+var inject_polyfills = function (requestData) {
+  ['es5-shim.js', 'es5-sham.js'].forEach(function(fil){
+    var result = page.injectJs(fil);
+    if (Debug === true) {
+      console.log((result ? 'Successfully injected' : 'Failed to inject'), fil, 'for', requestData.url);
+    }
+  });
+};
 
 if (phantom.args.length < 1 || phantom.args.length > 2) {
   console.log('Usage: rasterize.js URL filename');
@@ -57,8 +66,13 @@ if (phantom.args.length < 1 || phantom.args.length > 2) {
     }
   };
 
+  page.onResourceRequested = inject_polyfills;
+
   page.onConsoleMessage = function (msg) {
     console.log('Console Message:', msg);
+  };
+  page.onResourceError = function (err) {
+    console.log('Failed to load resource', err.url, 'because', err.errorString);
   };
   page.onLoadStarted = function () {
     if (current_timeout != null) {
@@ -67,6 +81,9 @@ if (phantom.args.length < 1 || phantom.args.length > 2) {
     }
   };
   page.onLoadFinished = function (status) {
+    if (Debug === true) {
+      console.log('Load finished with status', status);
+    }
     page.viewportSize = { width: WindowWidth, height: WindowHeight };
     page.clipRect = { width: WindowWidth, height: WindowHeight };
     current_timeout = setTimeout(render_page_first_try, RenderDelayTimeout);
