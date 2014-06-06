@@ -33,6 +33,7 @@ import anyjson
 import logbook
 import tweetsclient
 import politwoops
+replace_highpoints = politwoops.utils.replace_highpoints
 
 from stathat import StatHat
 
@@ -160,9 +161,9 @@ class DeletedTweetsWorker(object):
         num_previous = cursor.fetchone()[0]
         if num_previous > 0:
             cursor.execute("""UPDATE `tweets` SET `modified` = NOW(), `deleted` = 1 WHERE id = %s""", (tweet['delete']['status']['id'],))
-            self.copy_tweet_to_deleted_table(tweet['delete']['status']['id'])
         else:
             cursor.execute("""REPLACE INTO `tweets` (`id`, `deleted`, `modified`, `created`) VALUES(%s, 1, NOW(), NOW())""", (tweet['delete']['status']['id']))
+        self.copy_tweet_to_deleted_table(tweet['delete']['status']['id'])
 
         cursor.execute("""SELECT * FROM `tweets` WHERE `id` = %s""", (tweet['delete']['status']['id'],))
         ref_tweet = cursor.fetchone()
@@ -193,14 +194,14 @@ class DeletedTweetsWorker(object):
         retweeted_user_name = None
         if tweet.has_key('retweeted_status'):
             retweeted_id = tweet['retweeted_status']['id']
-            retweeted_content = tweet['retweeted_status']['text']
+            retweeted_content = replace_highpoints(tweet['retweeted_status']['text'])
             retweeted_user_name = tweet['retweeted_status']['user']['screen_name']
 
         if num_previous > 0:
             cursor.execute("""UPDATE `tweets` SET `user_name` = %s, `politician_id` = %s, `content` = %s, `tweet`=%s, `retweeted_id`=%s, `retweeted_content`=%s, `retweeted_user_name`=%s, `modified`= NOW() WHERE id = %s""",
                            (tweet['user']['screen_name'],
                             self.users[tweet['user']['id']],
-                            tweet['text'],
+                            replace_highpoints(tweet['text']),
                             anyjson.serialize(tweet),
                             retweeted_id,
                             retweeted_content,
@@ -212,7 +213,7 @@ class DeletedTweetsWorker(object):
                            (tweet['id'],
                             tweet['user']['screen_name'],
                             self.users[tweet['user']['id']],
-                            tweet['text'],
+                            replace_highpoints(tweet['text']),
                             anyjson.serialize(tweet),
                             retweeted_id,
                             retweeted_content,
@@ -228,7 +229,7 @@ class DeletedTweetsWorker(object):
 
     def copy_tweet_to_deleted_table(self, tweet_id):
         cursor = self.database.cursor()
-        cursor.execute("""INSERT IGNORE INTO `deleted_tweets` SELECT * FROM `tweets` WHERE `id` = %s AND `content` IS NOT NULL""" % (tweet_id))
+        cursor.execute("""REPLACE INTO `deleted_tweets` SELECT * FROM `tweets` WHERE `id` = %s AND `content` IS NOT NULL""" % (tweet_id))
         self.stathat_add_count('deleted tweets')
 
     def handle_possible_rename(self, tweet):

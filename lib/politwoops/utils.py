@@ -5,6 +5,7 @@ import datetime
 import threading
 import sys
 import os
+import re
 import signal
 from traceback import print_exception
 
@@ -13,6 +14,13 @@ import beanstalkc
 import anyjson
 
 import tweetsclient
+
+
+def replace_highpoints(subject, replacement=u'\ufffd'):
+    try:
+        return re.sub(u'[\U00010000-\U0010ffff]', replacement, subject, re.U)
+    except re.error:
+        return re.sub(u'[\uD800-\uDBFF][\uDC00-\uDFFF]', replacement, subject, re.U)
 
 
 def beanstalk(host='localhost', port=11300, watch=None, use=None):
