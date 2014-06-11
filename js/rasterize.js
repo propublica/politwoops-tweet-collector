@@ -21,12 +21,14 @@ var page = new WebPage(),
 var current_timeout = null;
 
 var inject_polyfills = function (requestData) {
-  ['es5-shim.js', 'es5-sham.js'].forEach(function(fil){
-    var result = page.injectJs(fil);
-    if (Debug === true) {
-      console.log((result ? 'Successfully injected' : 'Failed to inject'), fil, 'for', requestData.url);
-    }
-  });
+  if ((/^http[s]?:[/][/]/.test(requestData.url) == true) && (/.js($|[#?])/.test(requestData.url))) {
+    ['es5-shim.js', 'es5-sham.js'].forEach(function(fil){
+      var result = page.injectJs(fil);
+      if (Debug === true) {
+        console.log((result ? 'Successfully injected' : 'Failed to inject'), fil, 'for', requestData.url);
+      }
+    });
+  }
 };
 
 if (phantom.args.length < 1 || phantom.args.length > 2) {
@@ -78,6 +80,7 @@ if (phantom.args.length < 1 || phantom.args.length > 2) {
     if (current_timeout != null) {
       console.log('Previous rendering schedule canceled.');
       clearTimeout(current_timeout);
+      current_timeout = null;
     }
   };
   page.onLoadFinished = function (status) {
