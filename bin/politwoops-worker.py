@@ -35,8 +35,6 @@ import tweetsclient
 import politwoops
 replace_highpoints = politwoops.utils.replace_highpoints
 
-from stathat import StatHat
-
 _script_ = (os.path.basename(__file__)
             if __name__ == "__main__"
             else __name__)
@@ -109,7 +107,6 @@ class DeletedTweetsWorker(object):
         self.init_database()
         self.init_beanstalk()
         self.users, self.politicians = self.get_users()
-        self.stathat = self.get_stathat()
 
         while True:
             time.sleep(0.2)
@@ -120,24 +117,6 @@ class DeletedTweetsWorker(object):
             if job:
                 self.handle_tweet(job.body)
                 job.delete()
-
-    def get_stathat(self):
-        stathat_enabled = (self.config.get('stathat', 'enabled') == 'yes')
-        if not stathat_enabled:
-            log.debug('Running without stathat ...')
-            return
-        else:
-            log.debug('StatHat ingeration enabled ...')
-            return StatHat()
-
-    def stathat_add_count(self, stat_name):
-        if self.stathat is not None:
-            try:
-                self.stathat.ez_post_count(self.config.get('stathat', 'email'), stat_name, 1)
-            except urllib2.URLError, e:
-                pass
-            except urllib2.HTTPError, e:
-                pass
 
     def handle_tweet(self, job_body):
         tweet = anyjson.deserialize(job_body)
@@ -225,12 +204,9 @@ class DeletedTweetsWorker(object):
             log.warn("Tweet deleted {0} before it came!", tweet.get('id'))
             self.copy_tweet_to_deleted_table(tweet['id'])
 
-        self.stathat_add_count('tweets')
-
     def copy_tweet_to_deleted_table(self, tweet_id):
         cursor = self.database.cursor()
         cursor.execute("""REPLACE INTO `deleted_tweets` SELECT * FROM `tweets` WHERE `id` = %s AND `content` IS NOT NULL""" % (tweet_id))
-        self.stathat_add_count('deleted tweets')
 
     def handle_possible_rename(self, tweet):
         tweet_user_name = tweet['user']['screen_name']
