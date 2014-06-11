@@ -28,6 +28,7 @@ from boto.s3.key import Key
 
 import tweetsclient
 import politwoops
+from politwoops.utils import dict_mget
 
 
 _script_ = (os.path.basename(__file__)
@@ -200,10 +201,9 @@ class TweetEntityWorker(object):
 
     def process_entities(self, tweet):
         entities = []
-        if tweet['entities'].has_key('urls'):
-            entities = entities + tweet['entities']['urls']
-        if tweet['entities'].has_key('media'):
-            entities = entities + tweet['entities']['media']
+        entities_key = 'extended_entities' if 'extended_entities' in tweet else 'entities'
+        entities += dict_mget(tweet, entities_key, 'urls') or []
+        entities += dict_mget(tweet, entities_key, 'media') or []
 
         for entity_index, url_entity in enumerate(entities):
             urls = reduce_url_list([url for url in [url_entity.get('media_url'),

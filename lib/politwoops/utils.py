@@ -7,6 +7,7 @@ import sys
 import os
 import re
 import signal
+import copy
 from traceback import print_exception
 
 import logbook
@@ -14,6 +15,19 @@ import beanstalkc
 import anyjson
 
 import tweetsclient
+
+
+def dict_mget(subject, *keys, **kwargs):
+    curr = subject
+    for k in keys:
+        try:
+            if k in curr:
+                curr = curr[k]
+            else:
+                return None
+        except TypeError:
+            return None
+    return curr
 
 
 def replace_highpoints(subject, replacement=u'\ufffd'):
