@@ -113,7 +113,7 @@ class TweetStreamClient(object):
             return self.config.get(section, key)
         except ConfigParser.NoOptionError:
             return default
-        
+
     def load_plugin(self, plugin_module, plugin_class):
         pluginModule = __import__(plugin_module)
         components = plugin_module.split('.')
@@ -131,7 +131,7 @@ class TweetStreamClient(object):
                                                     port=int(self.config.get('beanstalk', 'port')),
                                                     watch=None,
                                                     use=tweets_tube)
-    
+
     def stream_forever(self):
         track_module = self.get_config_default('tweets-client', 'track-module', 'tweetsclient.config_track')
         track_class = self.get_config_default('tweets-client', 'track-class', 'ConfigTrackPlugin')
@@ -154,7 +154,7 @@ class TweetStreamClient(object):
             raise Exception('The words stream type is no longer supported.')
         else:
             raise Exception('Unrecognized stream type: {0}'.format(stream_type))
-    
+
     def run(self):
         self.init_beanstalk()
         with politwoops.utils.Heart() as heart:

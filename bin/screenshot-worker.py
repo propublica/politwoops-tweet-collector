@@ -197,7 +197,7 @@ class TweetEntityWorker(object):
                     log.error("Exception caught, burying screenshot job for tweet {tweet}: {e_type} {e}",
                               tweet=tweet.get('id'), e=e, e_type=type(e))
                     job.bury()
-    
+
     def process_entities(self, tweet):
         entities = []
         if tweet['entities'].has_key('urls'):
@@ -233,7 +233,7 @@ class TweetEntityWorker(object):
                     log.warn("Unable to retrieve head for tweet {tweet} entity URL {url}",
                              url=url,
                              tweet=tweet.get('id'))
-                
+
                 if response.headers.get('content-type', '').startswith('image/'):
                     self.mirror_entity_image(tweet, entity_index, url)
                 else:
@@ -245,7 +245,7 @@ class TweetEntityWorker(object):
             cursor.execute("""INSERT INTO `tweet_images` (`tweet_id`, `url`, `created_at`, `updated_at`) VALUES(%s, %s, NOW(), NOW())""", (tweet['id'], url))
             log.info("Inserted image into database for tweet {tweet}: {url}",
                       tweet=tweet.get('id'), url=url)
-    
+
 
     def screenshot_entity_url(self, tweet, entity_index, url):
         filename = "{tweet}-{index}.png".format(tweet=tweet.get('id'),
