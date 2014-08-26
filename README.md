@@ -1,3 +1,5 @@
+#Politwoops Tweet Collector
+
 ## Install Beanstalkd
 
 http://kr.github.com/beanstalkd/download.html
@@ -12,6 +14,12 @@ Install pip if you don't already have it then run:
 ```bash
 pip install -r requirements.txt
 ```
+
+## Install PhantomJS
+
+Install PhantomJS to grab screenshots of webpages and mirror images linked in tweets. 
+
+http://phantomjs.org
 
 
 ## Edit config file
