@@ -252,7 +252,7 @@ class TweetEntityWorker(object):
                                                 index=entity_index)
 
         with NamedTemporaryFile(mode='wb', prefix='twoops', suffix='.png', delete=True) as fil:
-            cmd = ["phantomjs", "js/rasterize.js", url, fil.name]
+            cmd = ["phantomjs", "--ssl-protocol=any", "js/rasterize.js", url, fil.name]
             (stdout, stderr) = run_subprocess_safely(cmd,
                                                      timeout=30,
                                                      timeout_signal=15)
