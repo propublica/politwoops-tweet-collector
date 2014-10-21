@@ -125,8 +125,8 @@ def reduce_url_list(urls):
     unique_urls = []
     for url in urls:
         if url not in unique_urls:
-            response = requests.head(url, allow_redirects=True, timeout=15)
             try:
+                response = requests.head(url, allow_redirects=True, timeout=15)
                 log.info("HEAD {status_code} {url} {bytes}",
                          status_code=response.status_code,
                          url=url,
@@ -136,11 +136,6 @@ def reduce_url_list(urls):
             except requests.exceptions.SSLError as e:
                 log.warning("Unable to make a HEAD request for {url} because: {e}",
                             url=url, e=e)
-                response = requests.get(url, allow_redirects=True, timeout=15)
-                log.info("GET {status_code} {url} {bytes}",
-                         status_code=response.status_code,
-                         url=url,
-                         bytes=len(response.content) if response.content else '')
 
     return unique_urls
 
