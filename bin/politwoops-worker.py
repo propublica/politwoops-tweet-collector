@@ -91,7 +91,7 @@ class DeletedTweetsWorker(object):
 
     def get_users(self):
         cursor = self.database.cursor()
-        q = "SELECT `twitter_id`, `user_name`, `id` FROM `politicians`"
+        q = "SELECT `twitter_id`, `user_name`, `id` FROM `politicians` where status IN (1,2)"
         cursor.execute(q)
         ids = {}
         politicians = {}
