@@ -148,7 +148,7 @@ class TweetStreamClient(object):
         stream = None
         if stream_type == 'users':
             tweet_listener = TweetListener(self.beanstalk)
-            stream = tweepy.Stream(self.twitter_auth, tweet_listener)
+            stream = tweepy.Stream(self.twitter_auth, tweet_listener, secure=True)
             stream.filter(follow=track_items)
         elif stream_type == 'words':
             raise Exception('The words stream type is no longer supported.')
