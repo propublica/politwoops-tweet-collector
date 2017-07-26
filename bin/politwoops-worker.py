@@ -141,7 +141,7 @@ class DeletedTweetsWorker(object):
         if num_previous > 0:
             cursor.execute("""UPDATE `tweets` SET `modified` = NOW(), `deleted` = 1 WHERE id = %s""", (tweet['delete']['status']['id'],))
         else:
-            cursor.execute("""REPLACE INTO `tweets` (`id`, `deleted`, `modified`, `created`) VALUES(%s, 1, NOW(), NOW())""", (tweet['delete']['status']['id']))
+            cursor.execute("""REPLACE INTO `tweets` (`id`, `deleted`, `modified`, `created`) VALUES (%s, 1, NOW(), NOW())""", (tweet['delete']['status']['id'],))
         self.copy_tweet_to_deleted_table(tweet['delete']['status']['id'])
 
         cursor.execute("""SELECT * FROM `tweets` WHERE `id` = %s""", (tweet['delete']['status']['id'],))
