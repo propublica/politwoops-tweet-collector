@@ -119,7 +119,7 @@ def start_heartbeat_thread(heart):
 
     heartbeat = threading.Thread(target=_heartbeat)
     # This causes the heartbeat thread to die with the main thread
-    heartbeat.daemon = True 
+    heartbeat.daemon = True
     heartbeat.start()
 
 
@@ -128,7 +128,7 @@ def start_watchdog_thread(heart):
     Watch a heartbeat file and restart when the file mtime is either
     too old or too far in the future.
     """
-  
+
     def _watchdog():
         while True:
             time.sleep(heart.interval.total_seconds() * 0.10)
@@ -151,7 +151,7 @@ def start_watchdog_thread(heart):
 
     watchdog = threading.Thread(target=_watchdog)
     # This causes the watchdog thread to die with the main thread
-    watchdog.daemon = True 
+    watchdog.daemon = True
     watchdog.start()
 
 
@@ -220,5 +220,3 @@ class Heart(object):
             return True
         else:
             return False
-
-    

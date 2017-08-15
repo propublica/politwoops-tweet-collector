@@ -171,6 +171,7 @@ class DeletedTweetsWorker(object):
         retweeted_id = None
         retweeted_content = None
         retweeted_user_name = None
+
         if tweet.has_key('retweeted_status'):
             retweeted_id = tweet['retweeted_status']['id']
             retweeted_content = replace_highpoints(tweet['retweeted_status']['text'])
@@ -181,7 +182,7 @@ class DeletedTweetsWorker(object):
                            (tweet['user']['screen_name'],
                             self.users[tweet['user']['id']],
                             replace_highpoints(tweet['text']),
-                            anyjson.serialize(tweet),
+                            replace_highpoints(anyjson.serialize(tweet),""),
                             retweeted_id,
                             retweeted_content,
                             retweeted_user_name,
@@ -193,7 +194,7 @@ class DeletedTweetsWorker(object):
                             tweet['user']['screen_name'],
                             self.users[tweet['user']['id']],
                             replace_highpoints(tweet['text']),
-                            anyjson.serialize(tweet),
+                            replace_highpoints(anyjson.serialize(tweet),""),
                             retweeted_id,
                             retweeted_content,
                             retweeted_user_name))

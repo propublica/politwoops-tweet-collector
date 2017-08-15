@@ -30,7 +30,7 @@ class BeanstalkPlugin(tweetsclient.QueuePlugin):
         beanstalk.use(tube)
         beanstalk.watch(tube)
         return beanstalk
-    
+
     def connect(self):
         log.debug("Initiating beanstalk connection for tube {tube}.",
                   tube=self.tube)
@@ -39,13 +39,12 @@ class BeanstalkPlugin(tweetsclient.QueuePlugin):
             port=int(self.config.get('beanstalk', 'port')),
             tube=self.tube,
         )
-    
+
     def disconnect(self):
         self.beanstalk.close()
-    
+
     def add(self, tweet):
         json_obj = anyjson.serialize(tweet)
         result = self.beanstalk.put(json_obj)
         log.debug(result)
         log.debug(json_obj.encode('utf-8'))
-
