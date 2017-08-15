@@ -59,11 +59,11 @@ class DeletedTweetsWorker(object):
             db=self.config.get('database', 'database'),
             user=self.config.get('database', 'username'),
             passwd=self.config.get('database', 'password'),
-            charset="utf8",
+            charset="utf8mb4",
             use_unicode=True
         )
         self.database.autocommit(True) # needed if you're using InnoDB
-        self.database.cursor().execute('SET NAMES UTF8')
+        self.database.cursor().execute('SET NAMES UTF8MB4')
 
     def init_beanstalk(self):
         tweets_tube = self.config.get('beanstalk', 'tweets_tube')

@@ -25,7 +25,7 @@ conn = MySQLdb.connect(
             db=config.get('database', 'database'),
             user=config.get('database', 'username'),
             passwd=config.get('database', 'password'),
-            charset="utf8",
+            charset="utf8mb4",
             use_unicode=True
         )
 cur = conn.cursor()
@@ -46,4 +46,3 @@ if unmoderated > max_tweets:
     smtp.sendmail(sender, recipient, msg.as_string())
 
     print "there are %s unreviewed tweets" % unmoderated
-
