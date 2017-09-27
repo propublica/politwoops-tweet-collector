@@ -1,3 +1,5 @@
+var system = require('system');
+
 // OverallTimeout prevents the script from running forever.
 var OverallTimeout = 15 * 1000;
 
@@ -31,7 +33,7 @@ var inject_polyfills = function (requestData) {
   }
 };
 
-if (phantom.args.length < 1 || phantom.args.length > 2) {
+if (system.args.length < 1 || system.args.length > 2) {
   console.log('Usage: rasterize.js URL filename');
   phantom.exit();
 } else {
@@ -42,8 +44,8 @@ if (phantom.args.length < 1 || phantom.args.length > 2) {
     phantom.exit();
   }, OverallTimeout);
 
-  address = phantom.args[0];
-  output = phantom.args[1];
+  address = system.args[0];
+  output = system.args[1];
 
   var render_page = function () {
     var href = page.evaluate(function(){ return window.location.href; });
@@ -94,4 +96,3 @@ if (phantom.args.length < 1 || phantom.args.length > 2) {
   };
   page.open(address);
 }
-
