@@ -10,14 +10,14 @@ class Config:
         """ Implementation of the singleton interface """
         def __init__(self):
             self.config = None
-         
+
         def get(self, environment='development'):
             """ Load and parses config if necessary """
             if self.config is None:
                 self.config = ConfigParser.ConfigParser()
                 self.config.read(['conf/tweets-client.ini'])
             return self.config
-             
+
     __instance = None
     
     def __init__(self):
