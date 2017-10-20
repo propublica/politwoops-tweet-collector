@@ -146,7 +146,7 @@ class DeletedTweetsWorker(object):
 #        cursor.execute("""SELECT * FROM `tweets` WHERE `id` = %s""", (tweet['delete']['status']['id'],))
 #        ref_tweet = cursor.fetchone()
 #        self.send_alert(ref_tweet[1], ref_tweet[4], ref_tweet[2])
-        urllib2.urlopen("https://projects.propublica.org/politwoops/_post_deletion/%s.json" % tweet['delete']['status']['id'])
+#        urllib2.urlopen("https://projects.propublica.org/politwoops/_post_deletion/%s.json" % tweet['delete']['status']['id'])
 
     def handle_new(self, tweet):
         log.notice("New tweet {tweet} from user {user_id}/{screen_name}",
