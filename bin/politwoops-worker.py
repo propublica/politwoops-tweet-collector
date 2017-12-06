@@ -159,7 +159,7 @@ class DeletedTweetsWorker(object):
                   tweet=tweet.get('id'),
                   user_id=tweet.get('user', {}).get('id'),
                   screen_name=tweet.get('user', {}).get('screen_name'))
-
+        
         self.handle_possible_rename(tweet)
         cursor = self.database.cursor()
         cursor.execute("""SELECT COUNT(*), `deleted` FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
