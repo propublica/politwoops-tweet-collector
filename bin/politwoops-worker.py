@@ -158,6 +158,7 @@ class DeletedTweetsWorker(object):
             tweet_json = self.tweepy_client.get_status(tweet.get('id'), tweet_mode='extended')._json
         except:
             tweet_json = tweet
+            tweet_json['full_text'] = tweet['text']
         log.notice("New tweet {tweet} from user {user_id}/{screen_name}",
                   tweet=tweet.get('id'),
                   user_id=tweet.get('user', {}).get('id'),
