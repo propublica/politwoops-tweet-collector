@@ -154,7 +154,10 @@ class DeletedTweetsWorker(object):
         self.copy_tweet_to_deleted_table(tweet['delete']['status']['id'])
 
     def handle_new(self, tweet):
-        tweet_json = self.tweepy_client.get_status(tweet.get('id'), tweet_mode='extended')._json
+        try:
+            tweet_json = self.tweepy_client.get_status(tweet.get('id'), tweet_mode='extended')._json
+        except:
+            tweet_json = tweet
         log.notice("New tweet {tweet} from user {user_id}/{screen_name}",
                   tweet=tweet.get('id'),
                   user_id=tweet.get('user', {}).get('id'),
