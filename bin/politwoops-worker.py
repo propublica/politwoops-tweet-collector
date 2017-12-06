@@ -154,11 +154,10 @@ class DeletedTweetsWorker(object):
         self.copy_tweet_to_deleted_table(tweet['delete']['status']['id'])
 
     def handle_new(self, tweet):
-        try:
-            tweet_json = self.tweepy_client.get_status(tweet.get('id'), tweet_mode='extended')._json
+        if tweet.get('extended_tweet'):
+            tweet_text = tweet.get('extended_tweet', {}).get('full_text')
         except:
-            tweet_json = tweet
-            tweet_json['full_text'] = tweet['text']
+            tweet_text = tweet.get('text')
         log.notice("New tweet {tweet} from user {user_id}/{screen_name}",
                   tweet=tweet.get('id'),
                   user_id=tweet.get('user', {}).get('id'),
@@ -188,8 +187,8 @@ class DeletedTweetsWorker(object):
             cursor.execute("""UPDATE `tweets` SET `user_name` = %s, `politician_id` = %s, `content` = %s, `tweet`=%s, `retweeted_id`=%s, `retweeted_content`=%s, `retweeted_user_name`=%s, `modified`= NOW() WHERE id = %s""",
                            (tweet['user']['screen_name'],
                             self.users[tweet['user']['id']],
-                            replace_highpoints(tweet_json['full_text'],""),
-                            replace_highpoints(str(tweet_json),""),
+                            replace_highpoints(tweet_text,""),
+                            replace_highpoints(str(tweet),""),
                             retweeted_id,
                             retweeted_content,
                             retweeted_user_name,
@@ -200,8 +199,8 @@ class DeletedTweetsWorker(object):
                            (tweet['id'],
                             tweet['user']['screen_name'],
                             self.users[tweet['user']['id']],
-                            replace_highpoints(tweet_json['full_text'],""),
-                            replace_highpoints(str(tweet_json),""),
+                            replace_highpoints(tweet_text,""),
+                            replace_highpoints(str(tweet),""),
                             retweeted_id,
                             retweeted_content,
                             retweeted_user_name))
