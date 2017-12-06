@@ -202,7 +202,6 @@ class DeletedTweetsWorker(object):
         if was_deleted:
             log.warn("Tweet deleted {0} before it came!", tweet.get('id'))
             self.copy_tweet_to_deleted_table(tweet['id'])
-            self.take_screenshot_and_post(tweet['id'])
 
     def copy_tweet_to_deleted_table(self, tweet_id):
         cursor = self.database.cursor()
