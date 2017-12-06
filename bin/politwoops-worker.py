@@ -181,7 +181,7 @@ class DeletedTweetsWorker(object):
                            (tweet['user']['screen_name'],
                             self.users[tweet['user']['id']],
                             replace_highpoints(tweet_text,""),
-                            replace_highpoints(str(tweet),""),
+                            replace_highpoints(anyjson.serialize(tweet),""),
                             retweeted_id,
                             retweeted_content,
                             retweeted_user_name,
@@ -193,7 +193,7 @@ class DeletedTweetsWorker(object):
                             tweet['user']['screen_name'],
                             self.users[tweet['user']['id']],
                             replace_highpoints(tweet_text,""),
-                            replace_highpoints(str(tweet),""),
+                            replace_highpoints(anyjson.serialize(tweet),""),
                             retweeted_id,
                             retweeted_content,
                             retweeted_user_name))
