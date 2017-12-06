@@ -159,7 +159,7 @@ class DeletedTweetsWorker(object):
                   tweet=tweet.get('id'),
                   user_id=tweet.get('user', {}).get('id'),
                   screen_name=tweet.get('user', {}).get('screen_name'))
-        
+
         self.handle_possible_rename(tweet)
         cursor = self.database.cursor()
         cursor.execute("""SELECT COUNT(*), `deleted` FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
@@ -212,9 +212,6 @@ class DeletedTweetsWorker(object):
     def copy_tweet_to_deleted_table(self, tweet_id):
         cursor = self.database.cursor()
         cursor.execute("""REPLACE INTO `deleted_tweets` SELECT * FROM `tweets` WHERE `id` = %s AND `content` IS NOT NULL""" % (tweet_id))
-
-    def take_screenshot_and_post(self, tweet_id):
-
 
     def handle_possible_rename(self, tweet):
         tweet_user_name = tweet['user']['screen_name']
