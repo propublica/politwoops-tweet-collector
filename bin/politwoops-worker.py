@@ -149,7 +149,7 @@ class DeletedTweetsWorker(object):
         if tweet.has_key('extended_tweet'):
             log.info("Extended tweet {0}", tweet.get('extended_tweet'))
             tweet_text = tweet.get('extended_tweet', {}).get('full_text')
-        except:
+        else:
             tweet_text = tweet.get('text')
         log.notice("New tweet {tweet} from user {user_id}/{screen_name}",
                   tweet=tweet.get('id'),
