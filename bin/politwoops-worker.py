@@ -51,14 +51,6 @@ class DeletedTweetsWorker(object):
         self.heart = heart
         self.images = images
         self.get_config()
-        self.config = tweetsclient.Config().get()
-        consumer_key = self.config.get('tweets-client', 'consumer_key')
-        consumer_secret = self.config.get('tweets-client', 'consumer_secret')
-        access_token = self.config.get('tweets-client', 'access_token')
-        access_token_secret = self.config.get('tweets-client', 'access_token_secret')
-        self.twitter_auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-        self.twitter_auth.set_access_token(access_token, access_token_secret)
-        self.tweepy_client = tweepy.API(self.twitter_auth)
 
     def init_database(self):
         log.debug("Making DB connection")
