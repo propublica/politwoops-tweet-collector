@@ -17,6 +17,7 @@ import anyjson
 import smtplib
 import signal
 import pytz
+import tweepy
 from email.mime.text import MIMEText
 from datetime import datetime
 
@@ -50,6 +51,14 @@ class DeletedTweetsWorker(object):
         self.heart = heart
         self.images = images
         self.get_config()
+        self.config = tweetsclient.Config().get()
+        consumer_key = self.config.get('tweets-client', 'consumer_key')
+        consumer_secret = self.config.get('tweets-client', 'consumer_secret')
+        access_token = self.config.get('tweets-client', 'access_token')
+        access_token_secret = self.config.get('tweets-client', 'access_token_secret')
+        self.twitter_auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+        self.twitter_auth.set_access_token(access_token, access_token_secret)
+        self.tweepy_client = tweepy.API(self.twitter_auth)
 
     def init_database(self):
         log.debug("Making DB connection")
@@ -143,12 +152,9 @@ class DeletedTweetsWorker(object):
         else:
             cursor.execute("""REPLACE INTO `tweets` (`id`, `deleted`, `modified`, `created`) VALUES (%s, 1, NOW(), NOW())""", (tweet['delete']['status']['id'],))
         self.copy_tweet_to_deleted_table(tweet['delete']['status']['id'])
-#        cursor.execute("""SELECT * FROM `tweets` WHERE `id` = %s""", (tweet['delete']['status']['id'],))
-#        ref_tweet = cursor.fetchone()
-#        self.send_alert(ref_tweet[1], ref_tweet[4], ref_tweet[2])
-#        urllib2.urlopen("https://projects.propublica.org/politwoops/_post_deletion/%s.json" % tweet['delete']['status']['id'])
 
     def handle_new(self, tweet):
+        tweet_json = self.tweepy_client.get_status(tweet['id'], tweet_mode='extended')._json
         log.notice("New tweet {tweet} from user {user_id}/{screen_name}",
                   tweet=tweet.get('id'),
                   user_id=tweet.get('user', {}).get('id'),
@@ -164,9 +170,6 @@ class DeletedTweetsWorker(object):
             was_deleted = (int(info[1]) == 1)
         else:
             was_deleted = False
-        # cursor.execute("""SELECT COUNT(*) FROM `tweets`""")
-        # total_count = cursor.fetchone()[0]
-        # self._debug("Total count in table: %s" % total_count)
 
         retweeted_id = None
         retweeted_content = None
@@ -181,8 +184,8 @@ class DeletedTweetsWorker(object):
             cursor.execute("""UPDATE `tweets` SET `user_name` = %s, `politician_id` = %s, `content` = %s, `tweet`=%s, `retweeted_id`=%s, `retweeted_content`=%s, `retweeted_user_name`=%s, `modified`= NOW() WHERE id = %s""",
                            (tweet['user']['screen_name'],
                             self.users[tweet['user']['id']],
-                            replace_highpoints(tweet['text'],""),
-                            replace_highpoints(anyjson.serialize(tweet),""),
+                            replace_highpoints(tweet_json['full_text'],""),
+                            replace_highpoints(tweet_json,""),
                             retweeted_id,
                             retweeted_content,
                             retweeted_user_name,
@@ -193,7 +196,7 @@ class DeletedTweetsWorker(object):
                            (tweet['id'],
                             tweet['user']['screen_name'],
                             self.users[tweet['user']['id']],
-                            replace_highpoints(tweet['text'],""),
+                            replace_highpoints(['full_text'],""),
                             replace_highpoints(anyjson.serialize(tweet),""),
                             retweeted_id,
                             retweeted_content,
@@ -204,10 +207,14 @@ class DeletedTweetsWorker(object):
         if was_deleted:
             log.warn("Tweet deleted {0} before it came!", tweet.get('id'))
             self.copy_tweet_to_deleted_table(tweet['id'])
+            self.take_screenshot_and_post(tweet['id'])
 
     def copy_tweet_to_deleted_table(self, tweet_id):
         cursor = self.database.cursor()
         cursor.execute("""REPLACE INTO `deleted_tweets` SELECT * FROM `tweets` WHERE `id` = %s AND `content` IS NOT NULL""" % (tweet_id))
+
+    def take_screenshot_and_post(self, tweet_id):
+
 
     def handle_possible_rename(self, tweet):
         tweet_user_name = tweet['user']['screen_name']
