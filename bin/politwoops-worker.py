@@ -147,7 +147,7 @@ class DeletedTweetsWorker(object):
 
     def handle_new(self, tweet):
         if tweet.has_key('extended_tweet'):
-            log.notice("Extended tweet {0}", tweet.get('extended_tweet'))
+            log.info("Extended tweet {0}", tweet.get('extended_tweet'))
             tweet_text = tweet.get('extended_tweet', {}).get('full_text')
         else:
             tweet_text = tweet.get('text')
@@ -155,7 +155,7 @@ class DeletedTweetsWorker(object):
                   tweet=tweet.get('id'),
                   user_id=tweet.get('user', {}).get('id'),
                   screen_name=tweet.get('user', {}).get('screen_name'))
-
+        log.notice("Full text: {0}", tweet_text)
         self.handle_possible_rename(tweet)
         cursor = self.database.cursor()
         cursor.execute("""SELECT COUNT(*), `deleted` FROM `tweets` WHERE `id` = %s""", (tweet['id'],))
