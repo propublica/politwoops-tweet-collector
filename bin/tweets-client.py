@@ -72,7 +72,7 @@ class TweetListener(tweepy.streaming.StreamListener):
                     log.notice(u"Queued delete notification for user {0} for tweet {1}".format(status.get('user_id_str'), status.get('id_str')))
 
             elif tweet.has_key('user'):
-                log.notice(u"Queued tweet for user {0}/{1}".format(dict_mget(tweet, ['user', 'screen_name']), dict_mget(tweet, ['user', 'id_str'])))
+                log.notice(u"Queued tweet for user {0} for tweet {1}".format(dict_mget(tweet, ['user', 'screen_name']), status.get('id_str')))
 
             else:
                 log.notice(u"Queued tweet: {0}".format(tweet))
