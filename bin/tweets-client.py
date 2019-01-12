@@ -162,7 +162,7 @@ class TweetStreamClient(object):
             politwoops.utils.start_watchdog_thread(heart)
             self.stream_forever()
 
-        self.beanstalk.disconnect()
+        self.beanstalk.close()
         return 0
 
 def main(args):
