@@ -8,10 +8,11 @@ import os
 import re
 import signal
 import copy
+import six
 from traceback import print_exception
 
 import logbook
-import beanstalkc
+from pystalkd.Beanstalkd import Connection
 import anyjson
 
 import tweetsclient
@@ -38,7 +39,7 @@ def replace_highpoints(subject, replacement=u'\ufffd'):
 
 
 def beanstalk(host='localhost', port=11300, watch=None, use=None):
-    beanstalk = beanstalkc.Connection(host=host, port=port)
+    beanstalk = Connection(host=host, port=port)
     if use:
         beanstalk.use(use)
     if watch:
@@ -47,7 +48,7 @@ def beanstalk(host='localhost', port=11300, watch=None, use=None):
 
 
 def configure_log_handler(application_name, loglevel, output):
-    if isinstance(loglevel, (str, unicode)):
+    if isinstance(loglevel, (str, six.string_types)):
         loglevel = getattr(logbook, loglevel.upper())
 
     if not isinstance(loglevel, int):
@@ -186,7 +187,7 @@ class Heart(object):
 
         start_time = datetime.datetime.now().isoformat()
         self.pid = os.getpid()
-        with file(self.filepath, 'w') as fil:
+        with open(self.filepath, 'w') as fil:
             fil.write(anyjson.serialize({
                 'pid': self.pid,
                 'started': start_time
@@ -199,7 +200,7 @@ class Heart(object):
         if ((exc_type, exc_value, traceback) == (None, None, None)) or (exc_type is KeyboardInterrupt):
             os.unlink(self.filepath)
         else:
-            with file(self.filepath, 'w') as outf:
+            with open(self.filepath, 'w') as outf:
                 print_exception(exc_type, exc_value, traceback, 1000, outf)
 
     def sleep(self):

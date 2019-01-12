@@ -17,20 +17,20 @@ class Plugin:
         self.options = options
         # get config
         self.config = tweetsclient.Config().get()
-    
+
 class TrackPlugin(Plugin):
     def get_type(self):
         return 'stream' # or 'users' or 'words'
-    
+
     def get_items(self):
         return []
 
 class QueuePlugin(Plugin):
     def add(self, tweet):
         pass
-    
+
     def connect(self):
         pass
-    
+
     def disconnect(self):
         pass

@@ -23,12 +23,12 @@ from datetime import datetime
 
 import socket
 # disable buffering
-socket._fileobject.default_bufsize = 0
+#socket._fileobject.default_bufsize = 0
 
-import httplib
-httplib.HTTPConnection.debuglevel = 1
+import http.client
+http.client.HTTPConnection.debuglevel = 1
 
-import urllib2
+from urllib.request import urlopen
 import MySQLdb
 import anyjson
 import logbook
@@ -121,14 +121,14 @@ class DeletedTweetsWorker(object):
 
     def handle_tweet(self, job_body):
         tweet = anyjson.deserialize(job_body)
-        if tweet.has_key('delete'):
+        if 'delete' in tweet:
             if tweet['delete']['status']['user_id'] in self.users.keys():
                 self.handle_deletion(tweet)
         else:
-            if tweet.has_key('user') and (tweet['user']['id'] in self.users.keys()):
+            if 'user' in tweet and (tweet['user']['id'] in self.users.keys()):
                 self.handle_new(tweet)
 
-                if self.images and tweet.has_key('entities'):
+                if self.images and 'entities' in tweet:
                     # Queue the tweet for screenshots and/or image mirroring
                     log.notice("Queued tweet {0} for entity archiving.", tweet['id'])
                     self.beanstalk.put(anyjson.serialize(tweet))
@@ -146,7 +146,7 @@ class DeletedTweetsWorker(object):
         self.copy_tweet_to_deleted_table(tweet['delete']['status']['id'])
 
     def handle_new(self, tweet):
-        if tweet.has_key('extended_tweet'):
+        if 'extended_tweet' in tweet:
             log.info("Extended tweet {0}", tweet.get('extended_tweet'))
             tweet_text = tweet.get('extended_tweet', {}).get('full_text')
         else:
@@ -171,7 +171,7 @@ class DeletedTweetsWorker(object):
         retweeted_content = None
         retweeted_user_name = None
 
-        if tweet.has_key('retweeted_status'):
+        if 'retweeted_status' in tweet:
             retweeted_id = tweet['retweeted_status']['id']
             retweeted_content = replace_highpoints(tweet['retweeted_status']['text'])
             retweeted_user_name = tweet['retweeted_status']['user']['screen_name']

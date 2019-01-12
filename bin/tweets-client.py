@@ -11,14 +11,15 @@ import os
 import sys
 import argparse
 import signal
-import ConfigParser
+import configparser
+from functools import reduce
 
 import socket
 # disable buffering
-socket._fileobject.default_bufsize = 0
+#socket._fileobject.default_bufsize = 0
 
-import httplib
-httplib.HTTPConnection.debuglevel = 1
+import http.client
+http.client.HTTPConnection.debuglevel = 1
 
 import anyjson
 import logbook
@@ -66,19 +67,19 @@ class TweetListener(tweepy.streaming.StreamListener):
         try:
             tweet = anyjson.deserialize(data)
             self.queue.put(anyjson.serialize(tweet))
-            if tweet.has_key('delete'):
+            if 'delete' in tweet:
                 status = dict_mget(tweet, ['delete', 'status'])
                 if status is not None:
                     log.notice(u"Queued delete notification for user {0} for tweet {1}".format(status.get('user_id_str'), status.get('id_str')))
 
-            elif tweet.has_key('user'):
+            elif 'user' in tweet:
                 log.notice(u"Queued tweet for user {0} for tweet {1}".format(dict_mget(tweet, ['user', 'screen_name']), tweet.get('id_str')))
 
             else:
                 log.notice(u"Queued tweet: {0}".format(tweet))
 
         except Exception as e:
-            log.error(u"TweetListener.on_data() caught exception: {0}".format(unicode(e)))
+            log.error(u"TweetListener.on_data() caught exception: {0}".format(e))
             return False  # Closes connection, stops streaming
 
     def on_timeout(self):
@@ -106,12 +107,12 @@ class TweetStreamClient(object):
             username = self.twitter_auth.get_username()
             log.notice("Authenticated as {user}".format(user=username))
         except tweepy.error.TweepError as e:
-            log.error(unicode(e))
+            log.error(e)
 
     def get_config_default(self, section, key, default = None):
         try:
             return self.config.get(section, key)
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             return default
 
     def load_plugin(self, plugin_module, plugin_class):
@@ -162,7 +163,7 @@ class TweetStreamClient(object):
             politwoops.utils.start_watchdog_thread(heart)
             self.stream_forever()
 
-        self.beanstalk.disconnect()
+        self.beanstalk.close()
         return 0
 
 def main(args):

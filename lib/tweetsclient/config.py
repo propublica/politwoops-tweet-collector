@@ -1,9 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import sys
 import re
-import ConfigParser
+import configparser
 
 class Config:
     class __impl:
@@ -14,12 +14,12 @@ class Config:
         def get(self, environment='development'):
             """ Load and parses config if necessary """
             if self.config is None:
-                self.config = ConfigParser.ConfigParser()
+                self.config = configparser.ConfigParser()
                 self.config.read(['conf/tweets-client.ini'])
             return self.config
 
     __instance = None
-    
+
     def __init__(self):
         """ Create singleton instance """
         # Check whether we already have an instance
