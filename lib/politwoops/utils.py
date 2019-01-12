@@ -200,7 +200,7 @@ class Heart(object):
         if ((exc_type, exc_value, traceback) == (None, None, None)) or (exc_type is KeyboardInterrupt):
             os.unlink(self.filepath)
         else:
-            with file(self.filepath, 'w') as outf:
+            with open(self.filepath, 'w') as outf:
                 print_exception(exc_type, exc_value, traceback, 1000, outf)
 
     def sleep(self):
