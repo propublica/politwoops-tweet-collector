@@ -9,7 +9,7 @@ import os
 import sys
 import re
 import time
-import httplib
+import http.client
 import mimetypes
 import urlparse
 import subprocess
@@ -224,7 +224,7 @@ class TweetEntityWorker(object):
                           status_code=response.status_code,
                           url=url,
                           bytes=len(response.content) if response.content else '')
-                if response.status_code != httplib.OK:
+                if response.status_code != http.client.OK:
                     log.warn("Unable to retrieve head for tweet {tweet} entity URL {url}",
                              url=url,
                              tweet=tweet.get('id'))
@@ -257,7 +257,7 @@ class TweetEntityWorker(object):
 
     def mirror_entity_image(self, tweet, entity_index, url):
         response = requests.get(url, allow_redirects=True, timeout=15)
-        if response.status_code != httplib.OK:
+        if response.status_code != http.client.OK:
             log.warn("Failed to download image {0}", url)
             return
         content_type = response.headers.get('content-type')

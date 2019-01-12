@@ -17,8 +17,8 @@ import socket
 # disable buffering
 socket._fileobject.default_bufsize = 0
 
-import httplib
-httplib.HTTPConnection.debuglevel = 1
+import http.client
+http.client.HTTPConnection.debuglevel = 1
 
 import anyjson
 import logbook
