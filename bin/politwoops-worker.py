@@ -28,7 +28,7 @@ import socket
 import http.client
 http.client.HTTPConnection.debuglevel = 1
 
-import urllib2
+from urllib.request import urlopen
 import MySQLdb
 import anyjson
 import logbook
