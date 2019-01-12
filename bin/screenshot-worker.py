@@ -26,7 +26,7 @@ import logbook
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 
-import lib.tweetsclient
+import tweetsclient
 import politwoops
 from politwoops.utils import dict_mget
 
@@ -157,7 +157,7 @@ class TweetEntityWorker(object):
     def __init__(self, heart):
         super(TweetEntityWorker, self).__init__()
         self.heart = heart
-        self.config = lib.tweetsclient.Config().get()
+        self.config = tweetsclient.Config().get()
         self.db_connect_params = {
             'host': self.config.get('database', 'host'),
             'port': int(self.config.get('database', 'port')),

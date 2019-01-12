@@ -32,7 +32,7 @@ from urllib.request import urlopen
 import MySQLdb
 import anyjson
 import logbook
-import lib.tweetsclient
+import tweetsclient
 import politwoops
 replace_highpoints = politwoops.utils.replace_highpoints
 
@@ -88,7 +88,7 @@ class DeletedTweetsWorker(object):
 
     def get_config(self):
         log.debug("Reading config ...")
-        self.config = lib.tweetsclient.Config().get()
+        self.config = tweetsclient.Config().get()
 
     def get_users(self):
         cursor = self.database.cursor()

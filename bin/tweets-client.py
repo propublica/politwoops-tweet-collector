@@ -25,7 +25,7 @@ import logbook
 
 # this is for consuming the streaming API
 import tweepy
-import lib.tweetsclient
+import tweetsclient
 import politwoops
 
 
@@ -89,7 +89,7 @@ class TweetListener(tweepy.streaming.StreamListener):
 
 class TweetStreamClient(object):
     def __init__(self):
-        self.config = lib.tweetsclient.Config().get()
+        self.config = tweetsclient.Config().get()
         consumer_key = self.config.get('tweets-client', 'consumer_key')
         consumer_secret = self.config.get('tweets-client', 'consumer_secret')
         access_token = self.config.get('tweets-client', 'access_token')
@@ -133,7 +133,7 @@ class TweetStreamClient(object):
                                                     use=tweets_tube)
 
     def stream_forever(self):
-        track_module = self.get_config_default('tweets-client', 'track-module', 'lib.tweetsclient.config_track')
+        track_module = self.get_config_default('tweets-client', 'track-module', 'tweetsclient.config_track')
         track_class = self.get_config_default('tweets-client', 'track-class', 'ConfigTrackPlugin')
         log.debug("Loading track plugin: {module} - {klass}",
                   module=track_module, klass=track_class)

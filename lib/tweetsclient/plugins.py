@@ -10,7 +10,7 @@ Copyright (c) 2010 Breyten Ernsting. All rights reserved.
 import sys
 import os
 
-import lib.tweetsclient
+import tweetsclient
 
 class Plugin:
     def __init__(self, options = {}):
