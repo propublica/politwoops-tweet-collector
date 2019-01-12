@@ -26,7 +26,7 @@ import logbook
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 
-import tweetsclient
+import lib.tweetsclient as tweetsclient
 import politwoops
 from politwoops.utils import dict_mget
 

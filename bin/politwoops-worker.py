@@ -32,7 +32,7 @@ from urllib.request import urlopen
 import MySQLdb
 import anyjson
 import logbook
-import tweetsclient
+import lib.tweetsclient as tweetsclient
 import politwoops
 replace_highpoints = politwoops.utils.replace_highpoints
 

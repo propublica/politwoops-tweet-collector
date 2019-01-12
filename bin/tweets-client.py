@@ -25,7 +25,7 @@ import logbook
 
 # this is for consuming the streaming API
 import tweepy
-import tweetsclient
+import lib.tweetsclient as tweetsclient
 import politwoops
 
 
