@@ -11,7 +11,7 @@ import re
 import time
 import http.client
 import mimetypes
-import urlparse
+from urllib.parse import urlparse
 import subprocess
 import threading
 import argparse
