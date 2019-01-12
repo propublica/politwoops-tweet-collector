@@ -8,6 +8,7 @@ import os
 import re
 import signal
 import copy
+import six
 from traceback import print_exception
 
 import logbook
@@ -47,7 +48,7 @@ def beanstalk(host='localhost', port=11300, watch=None, use=None):
 
 
 def configure_log_handler(application_name, loglevel, output):
-    if isinstance(loglevel, (str, unicode)):
+    if isinstance(loglevel, (str, six.string_types)):
         loglevel = getattr(logbook, loglevel.upper())
 
     if not isinstance(loglevel, int):
