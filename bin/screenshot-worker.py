@@ -70,7 +70,7 @@ def ensure_phantomjs_is_runnable():
                      stdout=stdout, stderr=stderr)
         sys.exit(1)
 
-    match = re.match('^\d+\.\d+\.\d+$', stdout.strip())
+    match = re.match(b'^\d+\.\d+\.\d+$', stdout.strip())
     if match is None:
         log.critical("Unrecognized version of phantomjs: {stdout!r}", stdout)
         sys.exit(1)
