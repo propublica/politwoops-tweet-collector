@@ -187,7 +187,7 @@ class Heart(object):
 
         start_time = datetime.datetime.now().isoformat()
         self.pid = os.getpid()
-        with file(self.filepath, 'w') as fil:
+        with open(self.filepath, 'w') as fil:
             fil.write(anyjson.serialize({
                 'pid': self.pid,
                 'started': start_time
