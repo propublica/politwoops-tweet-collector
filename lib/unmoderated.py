@@ -34,7 +34,7 @@ tweets = cur.fetchall()
 unmoderated = len(tweets)
 
 if unmoderated > max_tweets:
-    tz = pytz.timezone(unicode('US/Eastern'))
+    tz = pytz.timezone('US/Eastern')
     dtnow = datetime.datetime.now(tz)
 
     msg = MIMEText('', 'plain')

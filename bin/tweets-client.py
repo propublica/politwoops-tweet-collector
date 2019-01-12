@@ -78,7 +78,7 @@ class TweetListener(tweepy.streaming.StreamListener):
                 log.notice(u"Queued tweet: {0}".format(tweet))
 
         except Exception as e:
-            log.error(u"TweetListener.on_data() caught exception: {0}".format(unicode(e)))
+            log.error(u"TweetListener.on_data() caught exception: {0}".format(e))
             return False  # Closes connection, stops streaming
 
     def on_timeout(self):
@@ -106,7 +106,7 @@ class TweetStreamClient(object):
             username = self.twitter_auth.get_username()
             log.notice("Authenticated as {user}".format(user=username))
         except tweepy.error.TweepError as e:
-            log.error(unicode(e))
+            log.error(e)
 
     def get_config_default(self, section, key, default = None):
         try:
