@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import sys
@@ -19,7 +19,7 @@ class Config:
             return self.config
 
     __instance = None
-    
+
     def __init__(self):
         """ Create singleton instance """
         # Check whether we already have an instance

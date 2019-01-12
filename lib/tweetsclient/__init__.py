@@ -1,8 +1,8 @@
-import config
-import utils
+import lib.tweetsclient.config
+import lib.tweetsclient.utils
 
-from config import Config
-from plugins import Plugin, TrackPlugin, QueuePlugin
+from lib.tweetsclient.config import Config
+from lib.tweetsclient.plugins import Plugin, TrackPlugin, QueuePlugin
 
 from beanstalk import BeanstalkPlugin
 from config_track import ConfigTrackPlugin
