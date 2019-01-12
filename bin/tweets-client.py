@@ -11,7 +11,7 @@ import os
 import sys
 import argparse
 import signal
-import ConfigParser
+import configparser
 
 import socket
 # disable buffering
@@ -111,7 +111,7 @@ class TweetStreamClient(object):
     def get_config_default(self, section, key, default = None):
         try:
             return self.config.get(section, key)
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             return default
 
     def load_plugin(self, plugin_module, plugin_class):

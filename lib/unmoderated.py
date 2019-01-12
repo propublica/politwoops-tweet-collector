@@ -5,11 +5,11 @@ import MySQLdb
 import tweetsclient
 import smtplib
 from email.mime.text import MIMEText
-import ConfigParser
+import configparser
 import pytz
 import datetime
 
-smtpconfig = ConfigParser.ConfigParser()
+smtpconfig = configparser.configparser()
 smtpconfig.read('conf/tweets-client.ini')
 smtp = smtplib.SMTP(smtpconfig.get('moderation-alerts', 'mail_host'), smtpconfig.get('moderation-alerts', 'mail_port'))
 smtp.login(smtpconfig.get('moderation-alerts', 'mail_username'), smtpconfig.get('moderation-alerts', 'mail_password'))

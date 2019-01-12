@@ -3,7 +3,7 @@
 import os
 import sys
 import re
-import ConfigParser
+import configparser
 
 class Config:
     class __impl:
@@ -14,7 +14,7 @@ class Config:
         def get(self, environment='development'):
             """ Load and parses config if necessary """
             if self.config is None:
-                self.config = ConfigParser.ConfigParser()
+                self.config = configparser.configparser()
                 self.config.read(['conf/tweets-client.ini'])
             return self.config
 

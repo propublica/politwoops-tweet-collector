@@ -10,11 +10,11 @@ Copyright (c) 2010 __MyCompanyName__. All rights reserved.
 import sys
 import os
 import unittest
-import ConfigParser
+import configparser
 import MySQLdb
 
 import anyjson
-import beanstalkc
+import pystalkd
 import logbook
 
 import tweetsclient

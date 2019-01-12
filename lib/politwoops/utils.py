@@ -11,7 +11,7 @@ import copy
 from traceback import print_exception
 
 import logbook
-import beanstalkc
+import pystalkd
 import anyjson
 
 import tweetsclient
@@ -38,7 +38,7 @@ def replace_highpoints(subject, replacement=u'\ufffd'):
 
 
 def beanstalk(host='localhost', port=11300, watch=None, use=None):
-    beanstalk = beanstalkc.Connection(host=host, port=port)
+    beanstalk = pystalkd.Connection(host=host, port=port)
     if use:
         beanstalk.use(use)
     if watch:
