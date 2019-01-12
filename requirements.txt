@@ -5,8 +5,8 @@ Logbook==1.0.0
 mysqlclient==1.3.14
 oauthlib==2.0.1
 pytz==2016.10
-PyYAML==3.12
-requests==2.12.4
+pyyaml>=4.2b1
+requests>=2.20.0
 requests-oauthlib==0.7.0
 six==1.10.0
 tweepy==3.5.0
