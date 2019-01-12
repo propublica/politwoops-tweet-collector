@@ -15,7 +15,7 @@ import configparser
 
 import socket
 # disable buffering
-socket._fileobject.default_bufsize = 0
+#socket._fileobject.default_bufsize = 0
 
 import http.client
 http.client.HTTPConnection.debuglevel = 1
