@@ -14,7 +14,6 @@ import configparser
 import MySQLdb
 
 import anyjson
-import pystalkd
 import logbook
 
 import tweetsclient

@@ -12,7 +12,7 @@ import os
 import unittest
 
 import anyjson
-import pystalkd
+from pystalkd.Beanstalkd import Connection
 import logbook
 
 import tweetsclient
@@ -26,7 +26,7 @@ class BeanstalkPlugin(tweetsclient.QueuePlugin):
         self.tube = options['tube']
 
     def _connect(self, host='localhost', port=11300, tube='politwoops'):
-        beanstalk = pystalkd.Connection(host=host, port=port)
+        beanstalk = Connection(host=host, port=port)
         beanstalk.use(tube)
         beanstalk.watch(tube)
         return beanstalk
