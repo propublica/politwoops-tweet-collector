@@ -12,6 +12,7 @@ import sys
 import argparse
 import signal
 import configparser
+from functools import reduce
 
 import socket
 # disable buffering
