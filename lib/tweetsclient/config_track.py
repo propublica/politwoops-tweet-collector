@@ -10,7 +10,7 @@ Copyright (c) 2010 __MyCompanyName__. All rights reserved.
 import sys
 import os
 
-import lib.tweetsclient
+import tweetsclient
 
 class ConfigTrackPlugin(tweetsclient.TrackPlugin):
     def _get_words(self):
