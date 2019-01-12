@@ -66,12 +66,12 @@ class TweetListener(tweepy.streaming.StreamListener):
         try:
             tweet = anyjson.deserialize(data)
             self.queue.put(anyjson.serialize(tweet))
-            if tweet.has_key('delete'):
+            if 'delete' in tweet:
                 status = dict_mget(tweet, ['delete', 'status'])
                 if status is not None:
                     log.notice(u"Queued delete notification for user {0} for tweet {1}".format(status.get('user_id_str'), status.get('id_str')))
 
-            elif tweet.has_key('user'):
+            elif 'user' in tweet:
                 log.notice(u"Queued tweet for user {0} for tweet {1}".format(dict_mget(tweet, ['user', 'screen_name']), tweet.get('id_str')))
 
             else:

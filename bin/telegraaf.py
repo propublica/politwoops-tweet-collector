@@ -52,11 +52,10 @@ def main():
     print names2id.keys()
     print profiles.keys()
     for user_name in profiles.keys():
-        if names2id.has_key(user_name):
+        if user_name in names2id:
             print "INSERT INTO `politicians` (`user_name`, `party`, `twitter_id`) VALUES(\"%s\", \"%s\", %s);" % (user_name, profiles[user_name], names2id[user_name])
     #print twitter_ids[0]
     #print ','.join([str(id['id']) for id in twitter_ids])
 
 if __name__ == '__main__':
     main()
-
