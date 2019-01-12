@@ -10,27 +10,27 @@ Copyright (c) 2010 Breyten Ernsting. All rights reserved.
 import sys
 import os
 
-import tweetsclient
+import lib.tweetsclient
 
 class Plugin:
     def __init__(self, options = {}):
         self.options = options
         # get config
         self.config = tweetsclient.Config().get()
-    
+
 class TrackPlugin(Plugin):
     def get_type(self):
         return 'stream' # or 'users' or 'words'
-    
+
     def get_items(self):
         return []
 
 class QueuePlugin(Plugin):
     def add(self, tweet):
         pass
-    
+
     def connect(self):
         pass
-    
+
     def disconnect(self):
         pass

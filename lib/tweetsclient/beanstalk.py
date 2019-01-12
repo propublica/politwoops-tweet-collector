@@ -15,7 +15,7 @@ import anyjson
 import pystalkd
 import logbook
 
-import tweetsclient
+import lib.tweetsclient
 
 log = logbook.Logger(__name__)
 
