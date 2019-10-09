@@ -12,7 +12,7 @@ import os
 import unittest
 
 import anyjson
-from pystalkd.Beanstalk import Connection
+from pystalkd.Beanstalkd import Connection
 import logbook
 
 import tweetsclient
