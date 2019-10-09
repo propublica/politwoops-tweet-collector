@@ -12,7 +12,6 @@ import os
 import time
 import mimetypes
 import argparse
-import MySQLdb
 import anyjson
 import smtplib
 import signal
