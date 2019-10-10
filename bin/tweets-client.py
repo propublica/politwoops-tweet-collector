@@ -167,13 +167,14 @@ class TweetStreamClient(object):
 
         pluginClass = self.load_plugin(track_module, track_class)
         self.track = pluginClass()
-        stream_type = self.track.get_type()
+        stream_type = 'users' #self.track.get_type()
         log.debug("Initializing a {0} stream of tweets.", stream_type)
         track_items = self.track.get_items()
         log.debug(str(track_items))
 
         stream = None
         if stream_type == 'users':
+            print(self.users[0])
             tweet_listener = TweetListener(self.beanstalk)
             stream = tweepy.Stream(self.twitter_auth, tweet_listener, secure=True)
             stream.filter(follow=self.users)
