@@ -169,21 +169,15 @@ class TweetStreamClient(object):
 
         pluginClass = self.load_plugin(track_module, track_class)
         self.track = pluginClass()
-        stream_type = 'users' #self.track.get_type()
-        log.debug("Initializing a {0} stream of tweets.", stream_type)
+        log.debug("Initializing a stream of tweets.", stream_type)
         track_items = self.track.get_items()
         log.debug(str(track_items))
 
         stream = None
-        if stream_type == 'users':
-            users, politicians = self.get_users()
-            tweet_listener = TweetListener(self.beanstalk)
-            stream = tweepy.Stream(self.twitter_auth, tweet_listener, secure=True)
-            stream.filter(follow=users)
-        elif stream_type == 'words':
-            raise Exception('The words stream type is no longer supported.')
-        else:
-            raise Exception('Unrecognized stream type: {0}'.format(stream_type))
+        users, politicians = self.get_users()
+        tweet_listener = TweetListener(self.beanstalk)
+        stream = tweepy.Stream(self.twitter_auth, tweet_listener, secure=True)
+        stream.filter(follow=users)
 
     def run(self):
         self.init_beanstalk()
