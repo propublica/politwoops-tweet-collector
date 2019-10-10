@@ -177,10 +177,11 @@ class TweetStreamClient(object):
 
         stream = None
         if stream_type == 'users':
-            print(self.users[0])
+            users, politicians = self.users()
+            print(users[0])
             tweet_listener = TweetListener(self.beanstalk)
             stream = tweepy.Stream(self.twitter_auth, tweet_listener, secure=True)
-            stream.filter(follow=self.users)
+            stream.filter(follow=users)
         elif stream_type == 'words':
             raise Exception('The words stream type is no longer supported.')
         else:
