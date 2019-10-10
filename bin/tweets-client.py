@@ -109,18 +109,6 @@ class TweetStreamClient(object):
             log.notice("Authenticated as {user}".format(user=username))
         except tweepy.error.TweepError as e:
             log.error(e)
-        self.database = MySQLdb.connect(
-            host=self.config.get('database', 'host'),
-            port=int(self.config.get('database', 'port')),
-            db=self.config.get('database', 'database'),
-            user=self.config.get('database', 'username'),
-            passwd=self.config.get('database', 'password'),
-            charset="utf8mb4",
-            use_unicode=True
-        )
-        self.database.autocommit(True) # needed if you're using InnoDB
-        self.database.cursor().execute('SET NAMES UTF8MB4')
-        self.users, self.politicians = self.get_users()
 
     def get_config_default(self, section, key, default = None):
         try:
@@ -159,6 +147,21 @@ class TweetStreamClient(object):
                                                     watch=None,
                                                     use=tweets_tube)
 
+
+    def init_database(self):
+        self.database = MySQLdb.connect(
+            host=self.config.get('database', 'host'),
+            port=int(self.config.get('database', 'port')),
+            db=self.config.get('database', 'database'),
+            user=self.config.get('database', 'username'),
+            passwd=self.config.get('database', 'password'),
+            charset="utf8mb4",
+            use_unicode=True
+        )
+        self.database.autocommit(True) # needed if you're using InnoDB
+        self.database.cursor().execute('SET NAMES UTF8MB4')
+        self.users, self.politicians = self.get_users()
+
     def stream_forever(self):
         track_module = self.get_config_default('tweets-client', 'track-module', 'tweetsclient.config_track')
         track_class = self.get_config_default('tweets-client', 'track-class', 'ConfigTrackPlugin')
@@ -185,6 +188,7 @@ class TweetStreamClient(object):
 
     def run(self):
         self.init_beanstalk()
+        self.init_database()
         with politwoops.utils.Heart() as heart:
             politwoops.utils.start_heartbeat_thread(heart)
             politwoops.utils.start_watchdog_thread(heart)
