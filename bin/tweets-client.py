@@ -177,7 +177,7 @@ class TweetStreamClient(object):
 
         stream = None
         if stream_type == 'users':
-            users, politicians = self.users()
+            users, politicians = self.get_users()
             print(users[0])
             tweet_listener = TweetListener(self.beanstalk)
             stream = tweepy.Stream(self.twitter_auth, tweet_listener, secure=True)
