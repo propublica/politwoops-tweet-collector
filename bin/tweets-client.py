@@ -169,7 +169,7 @@ class TweetStreamClient(object):
 
         pluginClass = self.load_plugin(track_module, track_class)
         self.track = pluginClass()
-        log.debug("Initializing a stream of tweets.", stream_type)
+        log.debug("Initializing a stream of tweets.")
         track_items = self.track.get_items()
         log.debug(str(track_items))
 
