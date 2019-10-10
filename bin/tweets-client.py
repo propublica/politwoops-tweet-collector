@@ -164,7 +164,6 @@ class TweetStreamClient(object):
         )
         self.database.autocommit(True) # needed if you're using InnoDB
         self.database.cursor().execute('SET NAMES UTF8MB4')
-        self.users, self.politicians = self.get_users()
 
     def stream_forever(self):
         track_module = self.get_config_default('tweets-client', 'track-module', 'tweetsclient.config_track')
