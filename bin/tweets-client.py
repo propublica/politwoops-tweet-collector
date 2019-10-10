@@ -116,6 +116,10 @@ class TweetStreamClient(object):
         except configparser.NoOptionError:
             return default
 
+    def get_config(self):
+        log.debug("Reading config ...")
+        self.config = tweetsclient.Config().get()
+
     def get_users(self):
         cursor = self.database.cursor()
         q = "SELECT CAST(`twitter_id` as CHAR(255)) as twitter_id, `user_name`, `id` FROM `politicians` where status IN (1,2)"
@@ -178,7 +182,6 @@ class TweetStreamClient(object):
         stream = None
         if stream_type == 'users':
             users, politicians = self.get_users()
-            print(users[0])
             tweet_listener = TweetListener(self.beanstalk)
             stream = tweepy.Stream(self.twitter_auth, tweet_listener, secure=True)
             stream.filter(follow=users)
