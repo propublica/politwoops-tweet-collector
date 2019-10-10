@@ -130,13 +130,13 @@ class TweetStreamClient(object):
 
     def get_users(self):
         cursor = self.database.cursor()
-        q = "SELECT `twitter_id`, `user_name`, `id` FROM `politicians` where status IN (1,2)"
+        q = "SELECT CAST(`twitter_id` as CHAR(255)) as twitter_id, `user_name`, `id` FROM `politicians` where status IN (1,2)"
         cursor.execute(q)
         ids = {}
         politicians = {}
         for t in cursor.fetchall():
-            ids[t[0]] = t[2]
-            politicians[t[0]] = t[1]
+            ids[str(t[0])] = t[2]
+            politicians[str(t[0])] = t[1]
         log.info("Found ids: {ids}", ids=ids)
         log.info("Found politicians: {politicians}", politicians=politicians)
         return ids, politicians
