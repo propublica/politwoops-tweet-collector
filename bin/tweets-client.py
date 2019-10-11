@@ -104,6 +104,17 @@ class TweetStreamClient(object):
                   secret=access_token_secret)
         self.twitter_auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
         self.twitter_auth.set_access_token(access_token, access_token_secret)
+        self.database = MySQLdb.connect(
+            host=self.config.get('database', 'host'),
+            port=int(self.config.get('database', 'port')),
+            db=self.config.get('database', 'database'),
+            user=self.config.get('database', 'username'),
+            passwd=self.config.get('database', 'password'),
+            charset="utf8mb4",
+            use_unicode=True
+        )
+        self.database.autocommit(True) # needed if you're using InnoDB
+        self.database.cursor().execute('SET NAMES UTF8MB4')
         try:
             username = self.twitter_auth.get_username()
             log.notice("Authenticated as {user}".format(user=username))
@@ -148,19 +159,6 @@ class TweetStreamClient(object):
                                                     use=tweets_tube)
 
 
-    def init_database(self):
-        self.database = MySQLdb.connect(
-            host=self.config.get('database', 'host'),
-            port=int(self.config.get('database', 'port')),
-            db=self.config.get('database', 'database'),
-            user=self.config.get('database', 'username'),
-            passwd=self.config.get('database', 'password'),
-            charset="utf8mb4",
-            use_unicode=True
-        )
-        self.database.autocommit(True) # needed if you're using InnoDB
-        self.database.cursor().execute('SET NAMES UTF8MB4')
-
     def stream_forever(self):
         track_module = self.get_config_default('tweets-client', 'track-module', 'tweetsclient.config_track')
         track_class = self.get_config_default('tweets-client', 'track-class', 'ConfigTrackPlugin')
@@ -175,14 +173,13 @@ class TweetStreamClient(object):
 
         stream = None
         self.users, self.politicians = self.get_users()
+        log.notice("Retrieved {length} users").format(length=len(self.users)))
         tweet_listener = TweetListener(self.beanstalk)
         stream = tweepy.Stream(self.twitter_auth, tweet_listener, secure=True)
         stream.filter(follow=self.users)
-        log.notice(self.users[0:10])
 
     def run(self):
         self.init_beanstalk()
-        self.init_database()
         with politwoops.utils.Heart() as heart:
             politwoops.utils.start_heartbeat_thread(heart)
             politwoops.utils.start_watchdog_thread(heart)
