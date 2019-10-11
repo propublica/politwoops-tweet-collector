@@ -174,10 +174,11 @@ class TweetStreamClient(object):
         log.debug(str(track_items))
 
         stream = None
-        users, politicians = self.get_users()
+        self.users, self.politicians = self.get_users()
+        print(self.users[0:10])
         tweet_listener = TweetListener(self.beanstalk)
         stream = tweepy.Stream(self.twitter_auth, tweet_listener, secure=True)
-        stream.filter(follow=users)
+        stream.filter(follow=self.users)
 
     def run(self):
         self.init_beanstalk()
