@@ -12,6 +12,7 @@ import os
 import time
 import mimetypes
 import argparse
+import MySQLdb
 import anyjson
 import smtplib
 import signal
@@ -130,7 +131,7 @@ class DeletedTweetsWorker(object):
                 if self.images and 'entities' in tweet:
                     # Queue the tweet for screenshots and/or image mirroring
                     log.notice("Queued tweet {0} for entity archiving.", tweet['id'])
-                    self.beanstalk.put(anyjson.serialize(tweet), priority=0)
+                    self.beanstalk.put(anyjson.serialize(tweet))
 
 
     def handle_deletion(self, tweet):

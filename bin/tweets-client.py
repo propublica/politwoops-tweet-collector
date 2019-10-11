@@ -25,7 +25,6 @@ import anyjson
 import logbook
 
 # this is for consuming the streaming API
-import MySQLdb
 import tweepy
 import tweetsclient
 import politwoops
@@ -104,17 +103,6 @@ class TweetStreamClient(object):
                   secret=access_token_secret)
         self.twitter_auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
         self.twitter_auth.set_access_token(access_token, access_token_secret)
-        self.database = MySQLdb.connect(
-            host=self.config.get('database', 'host'),
-            port=int(self.config.get('database', 'port')),
-            db=self.config.get('database', 'database'),
-            user=self.config.get('database', 'username'),
-            passwd=self.config.get('database', 'password'),
-            charset="utf8mb4",
-            use_unicode=True
-        )
-        self.database.autocommit(True) # needed if you're using InnoDB
-        self.database.cursor().execute('SET NAMES UTF8MB4')
         try:
             username = self.twitter_auth.get_username()
             log.notice("Authenticated as {user}".format(user=username))
@@ -126,19 +114,6 @@ class TweetStreamClient(object):
             return self.config.get(section, key)
         except configparser.NoOptionError:
             return default
-
-    def get_users(self):
-        cursor = self.database.cursor()
-        q = "SELECT `twitter_id`, `user_name`, `id` FROM `politicians` where status IN (1,2)"
-        cursor.execute(q)
-        ids = {}
-        politicians = {}
-        for t in cursor.fetchall():
-            ids[str(t[0])] = t[2]
-            politicians[str(t[0])] = t[1]
-        log.info("Found ids: {ids}", ids=ids)
-        log.info("Found politicians: {politicians}", politicians=politicians)
-        return ids, politicians
 
     def load_plugin(self, plugin_module, plugin_class):
         pluginModule = __import__(plugin_module)
@@ -158,7 +133,6 @@ class TweetStreamClient(object):
                                                     watch=None,
                                                     use=tweets_tube)
 
-
     def stream_forever(self):
         track_module = self.get_config_default('tweets-client', 'track-module', 'tweetsclient.config_track')
         track_class = self.get_config_default('tweets-client', 'track-class', 'ConfigTrackPlugin')
@@ -168,16 +142,19 @@ class TweetStreamClient(object):
         pluginClass = self.load_plugin(track_module, track_class)
         self.track = pluginClass()
         stream_type = self.track.get_type()
-        log.debug("Initializing a stream of tweets.")
+        log.debug("Initializing a {0} stream of tweets.", stream_type)
         track_items = self.track.get_items()
         log.debug(str(track_items))
 
         stream = None
-        self.users, self.politicians = self.get_users()
-        log.notice("Retrieved {length} users", length=len(list(self.users.keys())))
-        tweet_listener = TweetListener(self.beanstalk)
-        stream = tweepy.Stream(self.twitter_auth, tweet_listener, secure=True)
-        stream.filter(follow=track_items)
+        if stream_type == 'users':
+            tweet_listener = TweetListener(self.beanstalk)
+            stream = tweepy.Stream(self.twitter_auth, tweet_listener, secure=True)
+            stream.filter(follow=track_items)
+        elif stream_type == 'words':
+            raise Exception('The words stream type is no longer supported.')
+        else:
+            raise Exception('Unrecognized stream type: {0}'.format(stream_type))
 
     def run(self):
         self.init_beanstalk()
