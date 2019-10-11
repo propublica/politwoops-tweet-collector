@@ -178,6 +178,7 @@ class TweetStreamClient(object):
         tweet_listener = TweetListener(self.beanstalk)
         stream = tweepy.Stream(self.twitter_auth, tweet_listener, secure=True)
         stream.filter(follow=self.users)
+        log.notice(self.users[0:10])
 
     def run(self):
         self.init_beanstalk()
