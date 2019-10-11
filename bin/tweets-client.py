@@ -175,7 +175,6 @@ class TweetStreamClient(object):
 
         stream = None
         self.users, self.politicians = self.get_users()
-        print(self.users[0:10])
         tweet_listener = TweetListener(self.beanstalk)
         stream = tweepy.Stream(self.twitter_auth, tweet_listener, secure=True)
         stream.filter(follow=self.users)

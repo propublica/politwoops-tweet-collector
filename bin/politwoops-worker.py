@@ -96,7 +96,7 @@ class DeletedTweetsWorker(object):
         ids = {}
         politicians = {}
         for t in cursor.fetchall():
-            ids[t[0]] = t[2]
+            ids[str(t[0])] = t[2]
             politicians[t[0]] = t[1]
         log.info("Found ids: {ids}", ids=ids)
         log.info("Found politicians: {politicians}", politicians=politicians)
