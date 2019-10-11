@@ -167,6 +167,7 @@ class TweetStreamClient(object):
 
         pluginClass = self.load_plugin(track_module, track_class)
         self.track = pluginClass()
+        stream_type = 'users'
         log.debug("Initializing a stream of tweets.")
         track_items = self.track.get_items()
         log.debug(str(track_items))
@@ -176,7 +177,7 @@ class TweetStreamClient(object):
         log.notice("Retrieved {length} users", length=len(list(self.users.keys())))
         tweet_listener = TweetListener(self.beanstalk)
         stream = tweepy.Stream(self.twitter_auth, tweet_listener, secure=True)
-        stream.filter(follow=list(self.users.keys()))
+        stream.filter(follow=track_items)
 
     def run(self):
         self.init_beanstalk()
