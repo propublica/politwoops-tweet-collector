@@ -79,7 +79,7 @@ class TweetListener(tweepy.streaming.StreamListener):
 
     def get_users(self):
         cursor = self.database.cursor()
-        q = "SELECT `twitter_id` FROM `politicians` where status IN (1,2)"
+        q = "SELECT `twitter_id`, `user_name`, `id` FROM `politicians` where status IN (1,2)"
         cursor.execute(q)
         ids = {}
         for t in cursor.fetchall():
