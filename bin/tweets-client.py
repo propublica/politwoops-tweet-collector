@@ -23,6 +23,7 @@ http.client.HTTPConnection.debuglevel = 1
 
 import anyjson
 import logbook
+import MySQLdb
 
 # this is for consuming the streaming API
 import tweepy
@@ -62,11 +63,42 @@ class TweetListener(tweepy.streaming.StreamListener):
     def __init__(self, queue, *args, **kwargs):
         super(TweetListener, self).__init__(*args, **kwargs)
         self.queue = queue
+        self.config = tweetsclient.Config().get()
+        self.database = self.init_database()
+        self.users = self.get_users()
+
+    def init_database(self):
+        log.debug("Making DB connection")
+        self.database = MySQLdb.connect(
+            host=self.config.get('database', 'host'),
+            port=int(self.config.get('database', 'port')),
+            db=self.config.get('database', 'database'),
+            user=self.config.get('database', 'username'),
+            passwd=self.config.get('database', 'password'),
+            charset="utf8mb4",
+            use_unicode=True
+        )
+        self.database.autocommit(True) # needed if you're using InnoDB
+        self.database.cursor().execute('SET NAMES UTF8MB4')
+
+    def get_users(self):
+        cursor = self.database.cursor()
+        q = "SELECT `twitter_id`
+        ids = {}
+        for t in cursor.fetchall():
+            ids[t[0]] = t[2]
+        return ids
 
     def on_data(self, data):
         try:
             tweet = anyjson.deserialize(data)
-            self.queue.put(anyjson.serialize(tweet))
+            # queue if not a reply
+            if tweet['in_reply_to_status_id'].nil?
+                self.queue.put(anyjson.serialize(tweet))
+            # if it is a reply, queue only if it's from one of the users we follow
+            elsif !tweet['in_reply_to_status_id'].nil? && tweet['user']['id'] in self.users
+                self.queue.put(anyjson.serialize(tweet))
+
             if 'delete' in tweet:
                 status = dict_mget(tweet, ['delete', 'status'])
                 if status is not None:
