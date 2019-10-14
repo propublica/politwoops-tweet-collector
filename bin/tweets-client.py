@@ -94,10 +94,10 @@ class TweetListener(tweepy.streaming.StreamListener):
         try:
             tweet = anyjson.deserialize(data)
             # queue if not a reply
-            if tweet['in_reply_to_status_id'].nil?
+            if tweet['in_reply_to_status_id'] == None
                 self.queue.put(anyjson.serialize(tweet))
             # if it is a reply, queue only if it's from one of the users we follow
-            elsif !tweet['in_reply_to_status_id'].nil? && tweet['user']['id'] in self.users
+            elif !tweet['in_reply_to_status_id'] == None and tweet['user']['id'] in self.users
                 self.queue.put(anyjson.serialize(tweet))
 
             if 'delete' in tweet:
