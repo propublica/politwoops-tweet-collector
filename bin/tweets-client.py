@@ -64,7 +64,6 @@ class TweetListener(tweepy.streaming.StreamListener):
         super(TweetListener, self).__init__(*args, **kwargs)
         self.queue = queue
         self.config = tweetsclient.Config().get()
-        self.database = self.init_database()
         self.users = self.get_users()
         self.database = MySQLdb.connect(
             host=self.config.get('database', 'host'),
