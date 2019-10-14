@@ -64,7 +64,6 @@ class TweetListener(tweepy.streaming.StreamListener):
         super(TweetListener, self).__init__(*args, **kwargs)
         self.queue = queue
         self.config = tweetsclient.Config().get()
-        self.users = self.get_users()
         self.database = MySQLdb.connect(
             host=self.config.get('database', 'host'),
             port=int(self.config.get('database', 'port')),
@@ -76,6 +75,7 @@ class TweetListener(tweepy.streaming.StreamListener):
         )
         self.database.autocommit(True) # needed if you're using InnoDB
         self.database.cursor().execute('SET NAMES UTF8MB4')
+        self.users = self.get_users()
 
     def get_users(self):
         cursor = self.database.cursor()
