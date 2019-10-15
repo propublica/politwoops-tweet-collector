@@ -128,10 +128,10 @@ class DeletedTweetsWorker(object):
             if 'user' in tweet and (tweet['user']['id'] in self.users.keys()):
                 self.handle_new(tweet)
 
-                if self.images and 'entities' in tweet:
-                    # Queue the tweet for screenshots and/or image mirroring
-                    log.notice("Queued tweet {0} for entity archiving.", tweet['id'])
-                    self.beanstalk.put(anyjson.serialize(tweet))
+#                if self.images and 'entities' in tweet:
+#                    # Queue the tweet for screenshots and/or image mirroring
+#                    log.notice("Queued tweet {0} for entity archiving.", tweet['id'])
+#                    self.beanstalk.put(anyjson.serialize(tweet))
 
 
     def handle_deletion(self, tweet):
