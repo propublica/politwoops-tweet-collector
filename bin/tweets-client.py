@@ -89,6 +89,7 @@ class TweetListener(tweepy.streaming.StreamListener):
     def on_data(self, data):
         try:
             tweet = anyjson.deserialize(data)
+            print(data)
             # queue if not a reply
             if tweet['in_reply_to_status_id'] == None:
                 self.queue.put(anyjson.serialize(tweet))
