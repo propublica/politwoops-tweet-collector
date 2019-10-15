@@ -89,23 +89,23 @@ class TweetListener(tweepy.streaming.StreamListener):
     def on_data(self, data):
         try:
             tweet = anyjson.deserialize(data)
-            print(data)
-            # queue if not a reply
-            if tweet['in_reply_to_status_id'] == None:
-                self.queue.put(anyjson.serialize(tweet))
-            # if it is a reply, queue only if it's from one of the users we follow
-            elif tweet['in_reply_to_status_id'] != None and tweet['user']['id'] in self.users and tweet['in_reply_to_user_id'] != 25073877:
-                self.queue.put(anyjson.serialize(tweet))
             if 'delete' in tweet:
                 status = dict_mget(tweet, ['delete', 'status'])
                 if status is not None:
                     log.notice(u"Queued delete notification for user {0} for tweet {1}".format(status.get('user_id_str'), status.get('id_str')))
-
             elif 'user' in tweet:
-                log.notice(u"Queued tweet for user {0} for tweet {1}".format(dict_mget(tweet, ['user', 'screen_name']), tweet.get('id_str')))
+                if 'retweeted_status' in tweet and tweet['user']['id'] in self.users:
+                    self.queue.put(anyjson.serialize(tweet))
+                    log.notice(u"Queued RT for user {0} for tweet {1}".format(dict_mget(tweet, ['user', 'screen_name']), tweet.get('id_str')))
+                elif tweet['in_reply_to_status_id'] == None and tweet['user']['id'] in self.users:
+                    self.queue.put(anyjson.serialize(tweet))
+                    log.notice(u"Queued tweet for user {0} for tweet {1}".format(dict_mget(tweet, ['user', 'screen_name']), tweet.get('id_str')))
+                elif tweet['in_reply_to_status_id'] != None and tweet['user']['id'] in self.users:
+                    self.queue.put(anyjson.serialize(tweet))
+                    log.notice(u"Queued reply tweet for user {0} for tweet {1}".format(dict_mget(tweet, ['user', 'screen_name']), tweet.get('id_str')))
 
             else:
-                log.notice(u"Queued tweet: {0}".format(tweet))
+                log.notice(u"Did not queue tweet: {0}".format(tweet))
 
         except Exception as e:
             log.error(u"TweetListener.on_data() caught exception: {0}".format(e))
