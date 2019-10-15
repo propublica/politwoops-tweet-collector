@@ -93,9 +93,8 @@ class TweetListener(tweepy.streaming.StreamListener):
             if tweet['in_reply_to_status_id'] == None:
                 self.queue.put(anyjson.serialize(tweet))
             # if it is a reply, queue only if it's from one of the users we follow
-            elif tweet['in_reply_to_status_id'] != None and tweet['user']['id'] in self.users:
+            elif tweet['in_reply_to_status_id'] != None and tweet['user']['id'] in self.users and tweet['in_reply_to_user_id'] != 25073877:
                 self.queue.put(anyjson.serialize(tweet))
-
             if 'delete' in tweet:
                 status = dict_mget(tweet, ['delete', 'status'])
                 if status is not None:
