@@ -199,9 +199,8 @@ class DeletedTweetsWorker(object):
                             retweeted_user_name))
             log.info("Inserted new tweet {0}", tweet.get('id'))
 
-            cursor.execute("""INSERT INTO `twitter_metrics` (politician_id, date, followers_count, tweets_count) VALUES (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE followers_count = VALUES(followers_count), tweets_count = VALUES(tweets_count))""",
+            cursor.execute("""INSERT INTO `twitter_metrics` (`politician_id`, `date`, `followers_count`, `tweets_count`) VALUES (%s, CURDATE(), %s, %s) ON DUPLICATE KEY UPDATE followers_count = VALUES(followers_count), tweets_count = VALUES(tweets_count))""",
                 (self.users[tweet['user']['id']],
-                CURDATE(),
                 tweet['user']['followers_count'],
                 tweet['user']['statuses_count'],
                 ))
