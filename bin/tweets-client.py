@@ -59,7 +59,7 @@ def dict_mget(thedict, keylist, default=None):
     result = reduce(lambda d, k: None if d is None else d.get(k), keylist, thedict)
     return result if result is not None else default
 
-class TweetListener(tweepy.streaming.StreamListener):
+class TweetListener(tweepy.StreamingClient):
     def __init__(self, queue, *args, **kwargs):
         super(TweetListener, self).__init__(*args, **kwargs)
         self.queue = queue
@@ -131,8 +131,9 @@ class TweetStreamClient(object):
         log.debug("Access credentials: {token}, {secret}",
                   token=access_token,
                   secret=access_token_secret)
-        self.twitter_auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-        self.twitter_auth.set_access_token(access_token, access_token_secret)
+        self.twitter_auth = tweepy.Client(consumer_key = consumer_key, consumer_secret=consumer_secret, access_token=access_token, access_token_secret=access_token_secret)
+#        self.twitter_auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+#        self.twitter_auth.set_access_token(access_token, access_token_secret)
         try:
             username = self.twitter_auth.get_username()
             log.notice("Authenticated as {user}".format(user=username))

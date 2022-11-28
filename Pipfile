@@ -1,0 +1,24 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+setuptools = "==57.5.0"
+anyjson = "*"
+pystalkd = "*"
+boto = "*"
+logbook = "*"
+mysqlclient = "*"
+oauthlib = "*"
+pytz = "*"
+pyyaml = "*"
+requests = "*"
+requests-oauthlib = "*"
+six = "*"
+tweepy = "==4.12.1"
+
+[dev-packages]
+
+[requires]
+python_version = "3.10"
